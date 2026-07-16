@@ -84,7 +84,7 @@ if (presentations.length > 0) {
       : '';
     const thumbBlock = p.thumbnailUrl
       ? `        <div class="deck-thumb"><img src="${escapeHtml(p.thumbnailUrl)}" alt=""></div>`
-      : `        <div class="deck-thumb deck-thumb-placeholder"><span>${escapeHtml(p.title.slice(0, 1))}</span></div>`;
+      : `        <div class="deck-thumb deck-thumb-placeholder"><span>${escapeHtml(p.title.slice(0, 1) || '?')}</span></div>`;
     return cardTemplate
       .replaceAll('{{INDEX}}', String(i))
       .replaceAll('{{INDEX_LABEL}}', String(i + 1).padStart(2, '0'))

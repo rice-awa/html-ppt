@@ -20,9 +20,21 @@ function sanitizeFilename(str) {
 
 function serveStatic(root, port) {
   return new Promise((resolve, reject) => {
+    const rootPath = path.resolve(root);
     const server = http.createServer((req, res) => {
-      const urlPath = decodeURIComponent(req.url.split('?')[0]);
-      let filePath = path.join(root, urlPath === '/' ? 'index.html' : urlPath);
+      const rawPath = decodeURIComponent(req.url.split('?')[0]);
+      const relPath = rawPath === '/' ? 'index.html' : rawPath.replace(/^\/+/, '');
+      if (relPath.includes('\0')) {
+        res.writeHead(400);
+        res.end('Bad request');
+        return;
+      }
+      const filePath = path.resolve(rootPath, relPath);
+      if (filePath !== rootPath && !filePath.startsWith(rootPath + path.sep)) {
+        res.writeHead(403);
+        res.end('Forbidden');
+        return;
+      }
 
       const tryRead = (target) => new Promise((res) => {
         fs.readFile(target, (err, data) => res({ err, data, target }));
@@ -46,6 +58,7 @@ function serveStatic(root, port) {
           '.js': 'application/javascript',
           '.png': 'image/png',
           '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
           '.svg': 'image/svg+xml'
         }[ext] || 'application/octet-stream';
         res.writeHead(200, { 'Content-Type': ct });
@@ -98,15 +111,17 @@ async function processBatch(browser, server, port, presentations, publicDir, cac
         return { route: p.route, thumbnailUrl: thumbUrl, ok: true, cached: true };
       }
 
+      let page;
       try {
-        const page = await browser.newPage();
+        page = await browser.newPage();
         const url = await capture(page, p.route, publicDir, cacheDir);
-        await page.close();
         fs.writeFileSync(hashFile, hash);
         return { route: p.route, thumbnailUrl: url, ok: true, cached: false };
       } catch (err) {
         console.warn(`⚠️ 截图失败: ${p.route} - ${err.message}`);
         return { route: p.route, thumbnailUrl: null, ok: false };
+      } finally {
+        if (page) await page.close();
       }
     }));
     results.push(...batchResults);
@@ -133,15 +148,16 @@ export default async function screenshots(presentations, { publicDir } = {}) {
     });
   });
 
-  const server = await serveStatic(publicDir, port);
-  const browser = await chromium.launch({ headless: true });
-
+  let server;
+  let browser;
   let results;
   try {
+    server = await serveStatic(publicDir, port);
+    browser = await chromium.launch({ headless: true });
     results = await processBatch(browser, server, port, presentations, publicDir, cacheDir);
   } finally {
-    await browser.close();
-    await new Promise((resolve) => server.close(resolve));
+    if (browser) await browser.close();
+    if (server) await new Promise((resolve) => server.close(resolve));
   }
 
   for (const r of results) {
