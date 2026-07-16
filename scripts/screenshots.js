@@ -95,7 +95,7 @@ async function processBatch(browser, server, port, presentations, publicDir, cac
 
       if (fs.existsSync(hashFile) && fs.existsSync(cachedThumbPath) && fs.readFileSync(hashFile, 'utf-8') === hash) {
         fs.copyFileSync(cachedThumbPath, thumbPath);
-        return { route: p.route, thumbnailUrl: thumbUrl, ok: true };
+        return { route: p.route, thumbnailUrl: thumbUrl, ok: true, cached: true };
       }
 
       try {
@@ -103,7 +103,7 @@ async function processBatch(browser, server, port, presentations, publicDir, cac
         const url = await capture(page, p.route, publicDir, cacheDir);
         await page.close();
         fs.writeFileSync(hashFile, hash);
-        return { route: p.route, thumbnailUrl: url, ok: true };
+        return { route: p.route, thumbnailUrl: url, ok: true, cached: false };
       } catch (err) {
         console.warn(`⚠️ 截图失败: ${p.route} - ${err.message}`);
         return { route: p.route, thumbnailUrl: null, ok: false };
@@ -145,7 +145,7 @@ export default async function screenshots(presentations, { publicDir } = {}) {
   }
 
   for (const r of results) {
-    if (r.ok) {
+    if (r.ok && !r.cached) {
       console.log(`✓ ${r.route} → ${r.thumbnailUrl}`);
     }
   }
