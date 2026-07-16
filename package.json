@@ -6,6 +6,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "postinstall": "npx playwright install chromium",
     "build": "node build.js",
     "dev": "node build.js && npx serve public"
   },
