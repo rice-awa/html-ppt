@@ -21,13 +21,35 @@ fs.mkdirSync(publicDir);
 // 读取自定义路由配置
 let routes = {};
 if (fs.existsSync(routesFile)) {
-  routes = JSON.parse(fs.readFileSync(routesFile, 'utf-8'));
+  try {
+    routes = JSON.parse(fs.readFileSync(routesFile, 'utf-8'));
+  } catch (err) {
+    console.error(`❌ 读取 ${routesFile} 失败: ${err.message}`);
+    process.exit(1);
+  }
+}
+
+// 确保 slides 目录存在
+if (!fs.existsSync(slidesDir)) {
+  fs.mkdirSync(slidesDir, { recursive: true });
+  console.log(`ℹ️ 创建 ${slidesDir} 目录`);
+}
+
+// 检查模板文件是否存在
+const indexTemplatePath = path.join(templatesDir, 'index.html');
+const cardTemplatePath = path.join(templatesDir, 'card.html');
+for (const tplPath of [indexTemplatePath, cardTemplatePath]) {
+  if (!fs.existsSync(tplPath)) {
+    console.error(`❌ 缺少模板文件: ${tplPath}`);
+    process.exit(1);
+  }
 }
 
 // 扫描 slides 目录
 const slides = fs.readdirSync(slidesDir).filter(f => f.endsWith('.html'));
 
 const presentations = [];
+const publicDirAbs = path.resolve(publicDir);
 
 for (const slideFile of slides) {
   const sourcePath = path.join(slidesDir, slideFile);
@@ -45,10 +67,19 @@ for (const slideFile of slides) {
   let targetFile = slideFile;
   if (routes[slideFile]) {
     const routePath = routes[slideFile];
-    targetFile = routePath.replace(/^\//, '') + '.html';
+    targetFile = String(routePath).replace(/^\//, '') + '.html';
   }
 
-  const targetPath = path.join(publicDir, targetFile);
+  const targetPath = path.resolve(publicDirAbs, targetFile);
+
+  // 防止路径越界
+  if (targetPath !== publicDirAbs && !targetPath.startsWith(publicDirAbs + path.sep)) {
+    console.error(`❌ 跳过越界路由: ${slideFile} → ${targetFile}`);
+    continue;
+  }
+
+  // 确保目标目录存在
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   fs.copyFileSync(sourcePath, targetPath);
 
   // 生成路由路径（用于索引页）
@@ -73,11 +104,11 @@ for (const p of presentations) {
 }
 
 // 生成首页索引（模板位于 templates/ 目录）
-const indexTemplate = fs.readFileSync(path.join(templatesDir, 'index.html'), 'utf-8');
+const indexTemplate = fs.readFileSync(indexTemplatePath, 'utf-8');
+const cardTemplate = fs.readFileSync(cardTemplatePath, 'utf-8');
 
 let listHtml;
 if (presentations.length > 0) {
-  const cardTemplate = fs.readFileSync(path.join(templatesDir, 'card.html'), 'utf-8');
   listHtml = presentations.map((p, i) => {
     const descBlock = p.description
       ? `          <p class="deck-desc">${escapeHtml(p.description)}</p>`

@@ -18,7 +18,7 @@ function sanitizeFilename(str) {
   return str.replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
-function serveStatic(root, port) {
+function serveStatic(root) {
   return new Promise((resolve, reject) => {
     const rootPath = path.resolve(root);
     const server = http.createServer((req, res) => {
@@ -65,8 +65,11 @@ function serveStatic(root, port) {
         res.end(data);
       })();
     });
-    server.listen(port, () => resolve(server));
+
     server.on('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      resolve({ server, port: server.address().port });
+    });
   });
 }
 
@@ -78,7 +81,6 @@ async function capture(page, route, publicDir, cacheDir) {
 
   fs.mkdirSync(path.dirname(thumbPath), { recursive: true });
 
-  await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto(`http://localhost:${process.env.HTMLPPT_PORT}${route}`, { waitUntil: 'networkidle' });
   await page.screenshot({ path: thumbPath, fullPage: false, type: 'png' });
 
@@ -89,7 +91,7 @@ async function capture(page, route, publicDir, cacheDir) {
   return `/${THUMBS_DIR}/${thumbName}`;
 }
 
-async function processBatch(browser, server, port, presentations, publicDir, cacheDir) {
+async function processBatch(context, server, port, presentations, publicDir, cacheDir) {
   process.env.HTMLPPT_PORT = String(port);
   const results = [];
 
@@ -113,7 +115,7 @@ async function processBatch(browser, server, port, presentations, publicDir, cac
 
       let page;
       try {
-        page = await browser.newPage();
+        page = await context.newPage();
         const url = await capture(page, p.route, publicDir, cacheDir);
         fs.writeFileSync(hashFile, hash);
         return { route: p.route, thumbnailUrl: url, ok: true, cached: false };
@@ -140,22 +142,23 @@ export default async function screenshots(presentations, { publicDir } = {}) {
 
   fs.mkdirSync(cacheDir, { recursive: true });
 
-  const port = await new Promise((resolve) => {
-    const srv = http.createServer();
-    srv.listen(0, '127.0.0.1', () => {
-      const { port } = srv.address();
-      srv.close(() => resolve(port));
-    });
-  });
-
   let server;
+  let port;
   let browser;
+  let context;
   let results;
   try {
-    server = await serveStatic(publicDir, port);
-    browser = await chromium.launch({ headless: true });
-    results = await processBatch(browser, server, port, presentations, publicDir, cacheDir);
+    ({ server, port } = await serveStatic(publicDir));
+    browser = await chromium.launch({
+      headless: process.env.HTMLPPT_HEADLESS !== '0'
+    });
+    context = await browser.newContext({
+      viewport: { width: 1280, height: 720 },
+      deviceScaleFactor: 1
+    });
+    results = await processBatch(context, server, port, presentations, publicDir, cacheDir);
   } finally {
+    if (context) await context.close();
     if (browser) await browser.close();
     if (server) await new Promise((resolve) => server.close(resolve));
   }

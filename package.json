@@ -2,11 +2,15 @@
   "name": "htmlppt",
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "node build.js",
     "dev": "node build.js && npx serve public"
   },
   "devDependencies": {
-    "playwright": "^1.45.0"
+    "playwright": "^1.45.0",
+    "serve": "^14.2.0"
   }
 }
