@@ -157,9 +157,12 @@ export default async function screenshots(presentations, { publicDir } = {}) {
       deviceScaleFactor: 1
     });
     results = await processBatch(context, server, port, presentations, publicDir, cacheDir);
+  } catch (err) {
+    console.warn(`⚠️ 截图环境不可用，跳过缩略图生成: ${err.message}`);
+    results = presentations.map(p => ({ route: p.route, thumbnailUrl: null, ok: false, cached: false }));
   } finally {
-    if (context) await context.close();
-    if (browser) await browser.close();
+    if (context) await context.close().catch(() => {});
+    if (browser) await browser.close().catch(() => {});
     if (server) await new Promise((resolve) => server.close(resolve));
   }
 
