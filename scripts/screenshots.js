@@ -3,6 +3,7 @@ import path from 'path';
 import http from 'http';
 import crypto from 'crypto';
 import { chromium } from 'playwright';
+import vercelChromium from '@sparticuz/chromium';
 
 const CACHE_DIR = '.cache/thumbs';
 const THUMBS_DIR = 'thumbs';
@@ -149,9 +150,16 @@ export default async function screenshots(presentations, { publicDir } = {}) {
   let results;
   try {
     ({ server, port } = await serveStatic(publicDir));
-    browser = await chromium.launch({
-      headless: process.env.HTMLPPT_HEADLESS !== '0'
-    });
+    const launchOptions = process.env.VERCEL
+      ? {
+          args: vercelChromium.args,
+          executablePath: await vercelChromium.executablePath(),
+          headless: true,
+        }
+      : {
+          headless: process.env.HTMLPPT_HEADLESS !== '0',
+        };
+    browser = await chromium.launch(launchOptions);
     context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
       deviceScaleFactor: 1
