@@ -1,4 +1,5 @@
 node_modules/
 public/
 .cache/
+.superpowers/
 .DS_Store

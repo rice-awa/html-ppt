@@ -74,7 +74,7 @@
   .page {
     position: relative;
     z-index: 1;
-    max-width: 860px;
+    max-width: 1200px;
     margin: 0 auto;
     padding: clamp(64px, 12vw, 128px) 24px 80px;
   }
@@ -145,9 +145,9 @@
   }
 
   .deck-list {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
   }
 
   .deck-card {
@@ -180,7 +180,7 @@
   }
 
   .deck-thumb {
-    height: 140px;
+    aspect-ratio: 16 / 10;
     overflow: hidden;
     background: var(--bg);
     border-bottom: 1px solid var(--border);
@@ -191,11 +191,18 @@
     height: 100%;
     object-fit: cover;
     object-position: top;
-    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), object-fit 0.35s ease;
   }
 
   .deck-card:hover .deck-thumb img {
     transform: scale(1.03);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .deck-card:hover .deck-thumb img {
+      object-fit: contain;
+      transform: scale(1);
+    }
   }
 
   .deck-thumb-placeholder {
@@ -207,7 +214,7 @@
 
   .deck-thumb-placeholder span {
     font-family: var(--font-display);
-    font-size: 3rem;
+    font-size: 2.4rem;
     font-weight: 700;
     color: rgba(255, 255, 255, 0.18);
     text-transform: uppercase;
@@ -224,13 +231,13 @@
   .deck-card:hover .deck-index { color: var(--accent); }
 
   .deck-body {
-    padding: 22px 28px 10px;
+    padding: 18px 20px 8px;
   }
 
   .deck-title {
     font-family: var(--font-display);
     font-weight: 600;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     letter-spacing: -0.01em;
     margin-bottom: 6px;
     text-wrap: pretty;
@@ -250,8 +257,8 @@
   .deck-meta {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 0 28px 24px;
+    gap: 12px;
+    padding: 0 20px 20px;
   }
 
   .deck-route {
@@ -295,7 +302,7 @@
   }
 
   footer {
-    max-width: 860px;
+    max-width: 1200px;
     margin: 64px auto 0;
     padding: 24px;
     text-align: center;
@@ -321,11 +328,21 @@
     }
   }
 
+  @media (max-width: 1023px) {
+    .deck-list {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+  }
+
   @media (max-width: 640px) {
-    .deck-thumb { height: 100px; }
+    .deck-list {
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
     .deck-body { padding: 18px 22px 8px; }
     .deck-meta { padding: 0 22px 18px; }
-    .deck-thumb-placeholder span { font-size: 2.4rem; }
+    .deck-thumb-placeholder span { font-size: 2rem; }
   }
 </style>
 </head>

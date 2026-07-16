@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>TCP 基本原理 · Transport Control Protocol</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+:root{
+  --bg:#ffffff;
+  --bg-soft:#f5f5f7;
+  --text:#1d1d1f;
+  --text-2:#6e6e73;
+  --blue:#0071e3;
+  --blue-2:#2997ff;
+  --mint:#64d2ff;
+  --green:#29cc6a;
+  --orange:#ff9f0a;
+  --red:#ff453a;
+  --border:#d2d2d7;
+  --radius-l:24px;
+  --radius-m:16px;
+  --radius-s:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{
+  height:100%;
+  background:radial-gradient(circle at 30% 20%, #f3f3f6, #e7e7ec 65%);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Microsoft YaHei",Arial,sans-serif;
+  color:var(--text);
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+body.fs-mode{background:#000;}
+
+/* ---------- 舞台与画布：固定 1280x720 设计尺寸，整体缩放适配任意窗口 ---------- */
+.stage{
+  width:100vw;height:100vh;
+  display:flex;align-items:center;justify-content:center;
+}
+.deck{
+  position:relative;
+  width:1280px;height:720px;
+  background:var(--bg);
+  border-radius:var(--radius-l);
+  box-shadow:0 40px 100px rgba(0,0,0,.35), 0 8px 30px rgba(0,0,0,.12);
+  overflow:hidden;
+  flex-shrink:0;
+  transform-origin:center center;
+}
+body.fs-mode .deck{border-radius:0;box-shadow:none;}
+
+/* ---------- 顶部工具条 ---------- */
+.top-bar{
+  position:absolute;top:0;left:0;right:0;height:60px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 32px;z-index:50;pointer-events:none;
+}
+.brand{display:flex;align-items:center;gap:8px;pointer-events:auto;}
+.brand-dot{width:8px;height:8px;border-radius:50%;background:var(--blue);box-shadow:0 0 0 4px rgba(0,113,227,.15);}
+.brand-text{font-size:12px;font-weight:600;color:var(--text-2);letter-spacing:.3px;}
+.icon-btn{
+  width:36px;height:36px;border-radius:50%;border:1px solid var(--border);
+  background:rgba(255,255,255,.7);backdrop-filter:blur(10px);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  color:var(--text);pointer-events:auto;transition:.25s;
+}
+.icon-btn svg{width:16px;height:16px;}
+.icon-btn:hover{background:var(--text);color:#fff;transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,.18);}
+.icon-btn:disabled{opacity:.25;pointer-events:none;}
+
+/* ---------- 顶部进度条 ---------- */
+.progress-track{position:absolute;top:0;left:0;right:0;height:3px;background:rgba(0,0,0,.06);z-index:60;}
+.progress-fill{height:100%;width:10%;background:linear-gradient(90deg,var(--blue-2),var(--blue));transition:width .5s cubic-bezier(.4,0,.2,1);}
+
+/* ---------- 底部工具条 ---------- */
+.bottom-bar{
+  position:absolute;bottom:0;left:0;right:0;height:64px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 32px;z-index:50;pointer-events:none;
+  background:linear-gradient(to top, rgba(255,255,255,.85), rgba(255,255,255,0));
+}
+.counter{font-size:12px;color:var(--text-2);font-variant-numeric:tabular-nums;letter-spacing:.5px;pointer-events:auto;font-family:ui-monospace,"SF Mono",Menlo,monospace;}
+.dots{display:flex;gap:8px;pointer-events:auto;}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--border);cursor:pointer;transition:.3s;}
+.dot.active{width:18px;border-radius:4px;background:var(--blue);}
+.nav-group{display:flex;gap:10px;pointer-events:auto;}
+
+/* ---------- 幻灯片容器 ---------- */
+.slides{position:absolute;top:0;left:0;right:0;bottom:0;}
+.slide{
+  position:absolute;inset:0;
+  padding:52px 80px;
+  opacity:0;transform:translateX(50px);
+  transition:opacity .6s cubic-bezier(.4,0,.2,1), transform .6s cubic-bezier(.4,0,.2,1);
+  pointer-events:none;z-index:1;
+  overflow:hidden;
+}
+.slide.active{opacity:1;transform:translateX(0);pointer-events:auto;z-index:3;}
+.slide.exit-left{opacity:0;transform:translateX(-50px);z-index:2;}
+.slide.exit-right{opacity:0;transform:translateX(50px);z-index:2;}
+
+.slide-inner{position:relative;z-index:2;width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;gap:28px;}
+.slide-watermark{
+  position:absolute;right:20px;bottom:-40px;font-size:230px;font-weight:800;
+  color:#000;opacity:.035;line-height:1;z-index:1;pointer-events:none;letter-spacing:-6px;
+}
+.animate-item{opacity:0;}
+
+.eyebrow{font-size:13px;font-weight:700;color:var(--blue);letter-spacing:.5px;}
+.slide-title{font-size:38px;font-weight:700;letter-spacing:-.8px;margin-top:6px;}
+.slide-desc{font-size:16px;color:var(--text-2);margin-top:8px;}
+.slide-head{max-width:820px;}
+
+/* ---------- 通用卡片 ---------- */
+.card{
+  background:var(--bg-soft);
+  border-radius:var(--radius-m);
+  border:1px solid rgba(0,0,0,.04);
+}
+
+/* ========== 封面 ========== */
+.title-slide{padding:0;display:flex;align-items:center;justify-content:center;}
+.orb{position:absolute;border-radius:50%;filter:blur(70px);z-index:0;}
+.orb-blue{width:460px;height:460px;background:rgba(0,113,227,.28);top:-140px;left:-120px;animation:float1 9s ease-in-out infinite;}
+.orb-mint{width:380px;height:380px;background:rgba(100,210,255,.30);bottom:-160px;right:-100px;animation:float2 11s ease-in-out infinite;}
+.orb-gray{width:320px;height:320px;background:rgba(52,204,106,.14);bottom:60px;left:120px;animation:float1 13s ease-in-out infinite;}
+@keyframes float1{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(30px,-24px) scale(1.06);}}
+@keyframes float2{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(-26px,20px) scale(1.08);}}
+
+.title-inner{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;}
+.badge-pill{
+  padding:7px 18px;border-radius:100px;background:rgba(0,0,0,.05);
+  font-size:13px;font-weight:600;color:var(--text-2);letter-spacing:.3px;
+}
+.hero-title{
+  font-size:168px;font-weight:800;letter-spacing:-7px;line-height:1;
+  background:linear-gradient(180deg,#1d1d1f 30%, #4b4b4e 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  margin-top:4px;
+}
+.hero-sub{font-size:29px;font-weight:600;color:var(--text);}
+.hero-desc{font-size:16px;color:var(--text-2);max-width:560px;line-height:1.7;}
+.hero-visual{display:flex;align-items:center;justify-content:center;margin-top:18px;}
+.hero-node{
+  width:60px;height:60px;border-radius:18px;background:#fff;border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;color:var(--blue);
+  box-shadow:0 10px 26px rgba(0,0,0,.08);
+}
+.hero-node svg{width:26px;height:26px;}
+.hero-link{width:220px;height:2px;background:var(--border);margin:0 18px;position:relative;border-radius:2px;}
+.hero-packet{position:absolute;top:50%;left:0;width:9px;height:9px;border-radius:50%;background:var(--blue);
+  transform:translateY(-50%);animation:packetMove 2.6s ease-in-out infinite;box-shadow:0 0 0 5px rgba(0,113,227,.15);}
+@keyframes packetMove{0%{left:0;opacity:0;}10%{opacity:1;}50%{left:calc(100% - 9px);}60%{opacity:1;}100%{left:calc(100% - 9px);opacity:0;}}
+
+/* ========== 特性卡片网格（什么是TCP） ========== */
+.feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.feature-card{padding:24px;display:flex;gap:16px;align-items:flex-start;}
+.feature-icon{
+  width:48px;height:48px;flex-shrink:0;border-radius:13px;
+  background:linear-gradient(135deg,var(--blue-2),var(--blue));
+  display:flex;align-items:center;justify-content:center;color:#fff;
+}
+.feature-icon svg{width:22px;height:22px;}
+.feature-card h3{font-size:17px;font-weight:700;margin-bottom:5px;}
+.feature-card p{font-size:13.5px;color:var(--text-2);line-height:1.65;}
+
+/* ========== TCP vs UDP ========== */
+.compare-wrap{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+.compare-card{border-radius:var(--radius-m);padding:26px 28px;border:1px solid var(--border);}
+.compare-card.is-tcp{background:linear-gradient(165deg, rgba(0,113,227,.07), rgba(0,113,227,.01));border-color:rgba(0,113,227,.25);}
+.compare-card.is-udp{background:var(--bg-soft);}
+.compare-top{display:flex;align-items:center;gap:10px;margin-bottom:4px;}
+.compare-tag{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;}
+.is-tcp .compare-tag{background:var(--blue);}
+.is-udp .compare-tag{background:#8e8e93;}
+.compare-card h3{font-size:21px;font-weight:700;}
+.compare-card .sub{font-size:12.5px;color:var(--text-2);}
+.compare-list{list-style:none;margin-top:16px;display:flex;flex-direction:column;gap:11px;}
+.compare-list li{display:flex;align-items:center;gap:9px;font-size:14px;}
+.compare-list svg{width:15px;height:15px;flex-shrink:0;}
+.is-tcp .compare-list svg{color:var(--green);}
+.is-udp .compare-list svg{color:var(--orange);}
+
+/* ========== TCP 首部结构 ========== */
+.header-diagram{display:flex;flex-direction:column;gap:6px;font-family:ui-monospace,"SF Mono",Menlo,monospace;}
+.header-row{display:flex;gap:6px;}
+.header-cell{
+  background:var(--bg-soft);border:1px solid var(--border);border-radius:9px;
+  padding:11px 6px;text-align:center;display:flex;flex-direction:column;justify-content:center;gap:2px;
+  opacity:0;transform:translateY(10px);
+}
+.header-cell b{font-size:12.5px;color:var(--text);font-weight:700;}
+.header-cell span{font-size:9.5px;color:var(--text-2);font-family:-apple-system,sans-serif;}
+.header-cell.accent{background:rgba(0,113,227,.08);border-color:rgba(0,113,227,.3);}
+
+/* ========== 握手 / 挥手 消息动画 ========== */
+.handshake-stage{display:flex;align-items:stretch;gap:26px;}
+.peer{width:150px;display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0;}
+.peer-icon{width:56px;height:56px;border-radius:16px;background:var(--bg-soft);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--blue);}
+.peer-icon svg{width:26px;height:26px;}
+.peer-name{font-size:14px;font-weight:700;}
+.state-badge{
+  font-size:11px;font-weight:700;padding:4px 10px;border-radius:100px;
+  background:var(--bg-soft);color:var(--text-2);font-family:ui-monospace,Menlo,monospace;
+  transition:.35s;letter-spacing:.3px;
+}
+.state-badge.live{background:rgba(0,113,227,.12);color:var(--blue);}
+.state-badge.done{background:rgba(41,204,106,.14);color:var(--green);}
+
+.messages{flex:1;display:flex;flex-direction:column;justify-content:center;gap:30px;padding:6px 0;}
+.message-row{display:flex;flex-direction:column;gap:6px;}
+.msg-label{font-size:13px;font-weight:600;color:var(--text);font-family:ui-monospace,Menlo,monospace;opacity:0;text-align:center;}
+.msg-track{position:relative;height:3px;background:rgba(0,0,0,.06);border-radius:3px;}
+.msg-fill{position:absolute;top:0;height:100%;width:0%;border-radius:3px;background:linear-gradient(90deg,var(--blue-2),var(--blue));}
+.message-row.dir-left .msg-fill{background:linear-gradient(90deg,var(--green),#20b358);}
+.msg-arrow{position:absolute;top:50%;width:0;height:0;opacity:0;transform:translateY(-50%);
+  border-top:6px solid transparent;border-bottom:6px solid transparent;}
+.message-row.dir-right .msg-fill{left:0;}
+.message-row.dir-right .msg-arrow{right:-1px;border-left:9px solid var(--blue);}
+.message-row.dir-left .msg-fill{right:0;left:auto;}
+.message-row.dir-left .msg-arrow{left:-1px;border-right:9px solid var(--green);}
+
+/* ========== 序号/滑动窗口 ========== */
+.window-track{display:flex;align-items:center;gap:8px;}
+.seg-box{
+  width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:15px;background:var(--bg-soft);color:#b7b7bc;border:2px solid transparent;
+  flex-shrink:0;font-family:ui-monospace,Menlo,monospace;
+}
+.seg-box.acked{background:rgba(41,204,106,.14);color:var(--green);}
+.seg-box.sent{background:rgba(0,113,227,.14);color:var(--blue);}
+.seg-box.ready{background:rgba(0,113,227,.06);color:var(--text-2);border-color:rgba(0,113,227,.25);}
+.window-group{display:flex;gap:8px;padding:6px;border-radius:16px;border:2px dashed var(--blue);position:relative;}
+.window-group::before{
+  content:"发送窗口 (Send Window)";position:absolute;top:-26px;left:0;font-size:11px;font-weight:700;color:var(--blue);
+  white-space:nowrap;
+}
+.legend-row{display:flex;gap:22px;margin-top:8px;}
+.legend-item{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text-2);}
+.legend-dot{width:10px;height:10px;border-radius:3px;}
+
+/* ========== 流量控制 缓冲区 ========== */
+.buffer-bar{display:flex;height:70px;border-radius:16px;overflow:hidden;border:1px solid var(--border);}
+.buf-seg{
+  display:flex;align-items:center;justify-content:center;color:#fff;font-size:12.5px;font-weight:600;
+  text-align:center;padding:6px;transform:scaleX(0);transform-origin:left;
+}
+.buf-delivered{background:#a1a1a6;}
+.buf-buffered{background:var(--orange);}
+.buf-window{background:var(--blue);}
+.buf-locked{background:#e5e5ea;color:var(--text-2);}
+.buffer-formula{
+  margin-top:18px;padding:16px 20px;border-radius:14px;background:var(--bg-soft);
+  font-family:ui-monospace,Menlo,monospace;font-size:14px;color:var(--text);display:flex;align-items:center;gap:10px;
+}
+.buffer-formula b{color:var(--blue);}
+
+/* ========== 拥塞控制图表 ========== */
+.chart-wrap{display:flex;gap:36px;align-items:center;}
+.chart-box{flex:1.35;background:var(--bg-soft);border-radius:var(--radius-m);padding:20px 22px 10px;}
+.chart-legend{flex:1;display:flex;flex-direction:column;gap:14px;}
+.legend-card{display:flex;gap:12px;align-items:flex-start;}
+.legend-num{width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;}
+.legend-card h4{font-size:14.5px;font-weight:700;margin-bottom:2px;}
+.legend-card p{font-size:12.5px;color:var(--text-2);line-height:1.55;}
+
+/* ========== 收尾 ========== */
+.closing-slide{padding:0;display:flex;align-items:center;justify-content:center;}
+.closing-inner{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;}
+.closing-title{font-size:76px;font-weight:800;letter-spacing:-3px;}
+.closing-desc{font-size:16px;color:var(--text-2);max-width:600px;line-height:1.7;}
+.recap-row{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:14px;max-width:820px;}
+.recap-item{
+  display:flex;align-items:center;gap:8px;padding:11px 18px;border-radius:100px;
+  background:var(--bg-soft);border:1px solid var(--border);font-size:13.5px;font-weight:600;
+}
+.recap-item svg{width:16px;height:16px;color:var(--blue);}
+.credit{margin-top:26px;font-size:12px;color:#a1a1a6;}
+
+/* ========== 提示 toast ========== */
+.hint-toast{
+  position:absolute;bottom:82px;left:50%;transform:translate(-50%,10px);
+  background:rgba(29,29,31,.85);color:#fff;font-size:12.5px;padding:9px 18px;border-radius:100px;
+  z-index:80;opacity:0;pointer-events:none;backdrop-filter:blur(6px);letter-spacing:.2px;
+}
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+  <div class="deck" id="deck">
+
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+
+    <div class="top-bar">
+      <div class="brand"><span class="brand-dot"></span><span class="brand-text">TCP · 传输控制协议 · Transport Layer</span></div>
+      <button class="icon-btn" id="fullscreenBtn" title="全屏"></button>
+    </div>
+
+    <div class="slides" id="slides">
+
+      <!-- 0 封面 -->
+      <section class="slide title-slide active" data-index="0">
+        <div class="orb orb-blue"></div>
+        <div class="orb orb-mint"></div>
+        <div class="orb orb-gray"></div>
+        <div class="title-inner">
+          <div class="badge-pill animate-item">网络协议核心系列 · Transport Layer</div>
+          <h1 class="hero-title animate-item">TCP</h1>
+          <h2 class="hero-sub animate-item">传输控制协议的可靠性之道</h2>
+          <p class="hero-desc animate-item">从三次握手到拥塞控制，探索互联网数据传输背后的精密设计</p>
+          <div class="hero-visual animate-item">
+            <div class="hero-node"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/></svg></div>
+            <div class="hero-link"><div class="hero-packet"></div></div>
+            <div class="hero-node"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="7" rx="1.5"/><rect x="4" y="14" width="16" height="7" rx="1.5"/><path d="M8 6.5h.01M8 17.5h.01"/></svg></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 1 什么是TCP -->
+      <section class="slide" data-index="1">
+        <div class="slide-watermark">01</div>
+        <div class="slide-inner">
+          <div class="slide-head animate-item">
+            <div class="eyebrow">基础概念</div>
+            <h2 class="slide-title">什么是 TCP</h2>
+            <p class="slide-desc">一种面向连接的、可靠的、基于字节流的传输层协议（RFC 793）</p>
+          </div>
+          <div class="feature-grid">
+            <div class="card feature-card animate-item">
+              <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.07 0l1.41-1.41a5 5 0 00-7.07-7.07L10 6"/><path d="M14 11a5 5 0 00-7.07 0L5.5 12.41a5 5 0 007.07 7.07L14 18"/></svg></div>
+              <div><h3>面向连接</h3><p>通信双方必须先通过三次握手建立连接，数据传输结束后再通过四次挥手释放连接。</p></div>
+            </div>
+            <div class="card feature-card animate-item">
+              <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg></div>
+              <div><h3>可靠传输</h3><p>通过序号确认、超时重传、校验和等机制，保证数据不丢失、不重复、按序到达。</p></div>
+            </div>
+            <div class="card feature-card animate-item">
+              <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12c2-3 4-3 6 0s4 3 6 0 4-3 6 0"/><path d="M2 18c2-3 4-3 6 0s4 3 6 0 4-3 6 0"/></svg></div>
+              <div><h3>面向字节流</h3><p>应用层数据被视为无结构的连续字节流，TCP 按需分段封装，不保留消息边界。</p></div>
+            </div>
+            <div class="card feature-card animate-item">
+              <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h13M17 3l4 4-4 4"/><path d="M17 17H4M7 21l-4-4 4-4"/></svg></div>
+              <div><h3>全双工通信</h3><p>连接建立后，通信双方可以同时发送与接收数据，两个方向互不干扰。</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2 TCP vs UDP -->
+      <section class="slide" data-index="2">
+        <div class="slide-watermark">02</div>
+        <div class="slide-inner">
+          <div class="slide-head animate-item">
+            <div class="eyebrow">协议对比</div>
+            <h2 class="slide-title">TCP 与 UDP</h2>
+            <p class="slide-desc">可靠性与效率之间的权衡，两种截然不同的设计哲学</p>
+          </div>
+          <div class="compare-wrap">
+            <div class="compare-card is-tcp animate-item">
+              <div class="compare-top">
+                <div class="compare-tag"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></div>
+                <div><h3>TCP</h3><div class="sub">面向连接 · 可靠</div></div>
+              </div>
+              <ul class="compare-list">
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>需要建立连接，数据有序可靠送达</li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>具备流量控制与拥塞控制机制</li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>首部开销较大（20–60 字节）</li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>适用于网页、文件传输、邮件等</li>
+              </ul>
+            </div>
+            <div class="compare-card is-udp animate-item">
+              <div class="compare-top">
+                <div class="compare-tag"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></div>
+                <div><h3>UDP</h3><div class="sub">无连接 · 高效</div></div>
+              </div>
+              <ul class="compare-list">
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>无需建立连接，直接发送数据报</li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>不保证送达顺序，可能丢包</li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>首部开销小（仅 8 字节），速度快</li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>适用于直播、DNS、实时游戏等</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3 首部结构 -->
+      <section class="slide" data-index="3">
+        <div class="slide-watermark">03</div>
+        <div class="slide-inner">
+          <div class="slide-head animate-item">
+            <div class="eyebrow">报文结构</div>
+            <h2 class="slide-title">TCP 首部剖析</h2>
+            <p class="slide-desc">20 字节固定首部，承载着可靠传输所需的全部控制信息</p>
+          </div>
+          <div class="header-diagram" id="headerDiagram">
+            <div class="header-row">
+              <div class="header-cell" style="flex:1"><b>源端口号</b><span>16 bit</span></div>
+              <div class="header-cell" style="flex:1"><b>目的端口号</b><span>16 bit</span></div>
+            </div>
+            <div class="header-row">
+              <div class="header-cell" style="flex:1"><b>序号 Sequence Number</b><span>32 bit</span></div>
+            </div>
+            <div class="header-row">
+              <div class="header-cell" style="flex:1"><b>确认号 Acknowledgment Number</b><span>32 bit</span></div>
+            </div>
+            <div class="header-row">
+              <div class="header-cell" style="flex:0.5"><b>首部长度</b><span>4 bit</span></div>
+              <div class="header-cell" style="flex:0.5"><b>保留</b><span>6 bit</span></div>
+              <div class="header-cell accent" style="flex:1"><b>标志位 URG·ACK·PSH·RST·SYN·FIN</b><span>6 bit</span></div>
+              <div class="header-cell" style="flex:1"><b>窗口大小 Window</b><span>16 bit</span></div>
+            </div>
+            <div class="header-row">
+              <div class="header-cell" style="flex:1"><b>校验和 Checksum</b><span>16 bit</span></div>
+              <div class="header-cell" style="flex:1"><b>紧急指针 Urgent Pointer</b><span>16 bit</span></div>
+            </div>
+            <div class="header-row">
+              <div class="header-cell" style="flex:1"><b>选项 Options（可变，0–40 字节）+ 填充</b><span>视情况而定</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4 三次握手 -->
+      <section class="slide" data-index="4">
+        <div class="slide-watermark">04</div>
+        <div class="slide-inner">
+          <div class="slide-head animate-item">
+            <div class="eyebrow">建立连接</div>
+            <h2 class="slide-title">三次握手 · Three-way Handshake</h2>
+            <p class="slide-desc">确保双方都具备收发能力，防止已失效的连接请求突然到达服务器</p>
+          </div>
+          <div class="handshake-stage" id="handshakeStage">
+            <div class="peer">
+              <div class="peer-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/></svg></div>
+              <div class="peer-name">客户端 Client</div>
+              <div class="state-badge" id="hsClientState">CLOSED</div>
+            </div>
+            <div class="messages">
+              <div class="message-row dir-right">
+                <div class="msg-label">① SYN=1, seq=x</div>
+                <div class="msg-track"><div class="msg-fill"></div><div class="msg-arrow"></div></div>
+              </div>
+              <div class="message-row dir-left">
+                <div class="msg-label">② SYN=1, ACK=1, seq=y, ack=x+1</div>
+                <div class="msg-track"><div class="msg-fill"></div><div class="msg-arrow"></div></div>
+              </div>
+              <div class="message-row dir-right">
+                <div class="msg-label">③ ACK=1, seq=x+1, ack=y+1</div>
+                <div class="msg-track"><div class="msg-fill"></div><div class="msg-arrow"></div></div>
+              </div>
+            </div>
+            <div class="peer">
+              <div class="peer-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="7" rx="1.5"/><rect x="4" y="14" width="16" height="7" rx="1.5"/><path d="M8 6.5h.01M8 17.5h.01"/></svg></div>
+              <div class="peer-name">服务器 Server</div>
+              <div class="state-badge" id="hsServerState">LISTEN</div>
+            </div>
+          </div>
+          <div class="buffer-formula animate-item" style="margin-top:0;">💡 为什么是三次而非两次？<b>&nbsp;避免已失效的连接请求到达服务器后，白白建立无用连接、浪费资源。</b></div>
+        </div>
+      </section>
+
+      <!-- 5 序号与滑动窗口 -->
+      <section class="slide" data-index="5">
+        <div class="slide-watermark">05</div>
+        <div class="slide-inner">
+          <div class="slide-head animate-item">
+            <div class="eyebrow">数据传输</div>
+            <h2 class="slide-title">序号与滑动窗口</h2>
+            <p class="slide-desc">发送方在窗口范围内连续发送数据，无需等待每个包单独确认</p>
+          </div>
+          <div class="window-track" id="windowTrack">
+            <div class="seg-box acked">1</div>
+            <div class="seg-box acked">2</div>
+            <div class="window-group">
+              <div class="seg-box sent">3</div>
+              <div class="seg-box sent">4</div>
+              <div class="seg-box ready">5</div>
+              <div class="seg-box ready">6</div>
+            </div>
+            <div class="seg-box">7</div>
+            <div class="seg-box">8</div>
+            <div class="seg-box">9</div>
+            <div class="seg-box">10</div>
+          </div>
+          <div class="legend-row animate-item">
+            <div class="legend-item"><span class="legend-dot" style="background:var(--green)"></span>已发送并确认</div>
+            <div class="legend-item"><span class="legend-dot" style="background:var(--blue)"></span>已发送未确认</div>
+            <div class="legend-item"><span class="legend-dot" style="background:rgba(0,113,227,.2);border:1px solid var(--blue)"></span>窗口内可发送</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#eceef0"></span>窗口外暂不可发送</div>
+          </div>
+          <div class="buffer-formula animate-item">采用<b>累积确认</b>：ACK=n 表示前 n-1 字节均已正确接收，窗口随之向前滑动。</div>
+        </div>
+      </section>
+
+      <!-- 6 流量控制 -->
+      <section class="slide" data-index="6">
+        <div class="slide-watermark">06</div>
+        <div class="slide-inner">
+          <div class="slide-head animate-item">
+            <div class="eyebrow">流量控制</div>
+            <h2 class="slide-title">让发送方恰到好处</h2>
+            <p class="slide-desc">接收方通过首部中的 rwnd 字段，动态告知自己还能接收多少数据</p>
+          </div>
+          <div class="buffer-bar" id="bufferBar">
+            <div class="buf-seg buf-delivered" style="flex:3">已交付应用层</div>
+            <div class="buf-seg buf-buffered" style="flex:2">已接收未处理</div>
+            <div class="buf-seg buf-window" style="flex:4">可用窗口 rwnd</div>
+            <div class="buf-seg buf-locked" style="flex:3">暂不可用</div>
+          </div>
+          <div class="buffer-formula animate-item">可用窗口 = <b>rwnd − 已发送未确认字节数</b>；当 rwnd = 0 时，发送方停止发送并启动<b>窗口探测</b>。</div>
+        </div>
+      </section>
+
+      <!-- 7 拥塞控制 -->
+      <section class="slide" data-index="7">
+        <div class="slide-watermark">07</div>
+        <div class="slide-inner">
+          <div class="slide-head animate-item">
+            <div class="eyebrow">拥塞控制</div>
+            <h2 class="slide-title">感知网络，动态调节</h2>
+            <p class="slide-desc">发送方结合网络拥塞状况，自适应调整拥塞窗口 cwnd</p>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-box">
+              <svg viewBox="0 0 1000 380" width="100%" height="290">
+                <line x1="40" y1="340" x2="960" y2="340" stroke="#d2d2d7" stroke-width="1.5"/>
+                <line x1="40" y1="20" x2="40" y2="340" stroke="#d2d2d7" stroke-width="1.5"/>
+                <line x1="40" y1="120" x2="960" y2="120" stroke="#d2d2d7" stroke-width="1.2" stroke-dasharray="5 6"/>
+                <text x="945" y="358" font-size="13" fill="#6e6e73">RTT</text>
+                <text x="8" y="24" font-size="13" fill="#6e6e73">cwnd</text>
+                <path id="cwndPath" d="M40,340 C90,330 120,200 180,120 L380,60 L380,200 L580,110 L580,225 L760,140 L760,235 L940,160" fill="none" stroke="#0071e3" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <g id="cwndDots"></g>
+              </svg>
+            </div>
+            <div class="chart-legend">
+              <div class="legend-card animate-item">
+                <div class="legend-num" style="background:var(--blue)">1</div>
+                <div><h4>慢启动 Slow Start</h4><p>cwnd 从 1 个 MSS 开始，每收到一个 ACK 就翻倍，呈指数增长。</p></div>
+              </div>
+              <div class="legend-card animate-item">
+                <div class="legend-num" style="background:var(--green)">2</div>
+                <div><h4>拥塞避免 Congestion Avoidance</h4><p>达到 ssthresh 后转为线性增长，每个 RTT 增加 1 个 MSS。</p></div>
+              </div>
+              <div class="legend-card animate-item">
+                <div class="legend-num" style="background:var(--orange)">3</div>
+                <div><h4>快速重传 / 拥塞发生</h4><p>收到 3 个重复 ACK 立即重传；出现丢包时 ssthresh 减半。</p></div>
+              </div>
+              <div class="legend-card animate-item">
+                <div class="legend-num" style="background:var(--red)">4</div>
+                <div><h4>快速恢复 Fast Recovery</h4><p>cwnd 直接降为 ssthresh 而非回到 1，避免流量剧烈波动。</p></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8 四次挥手 -->
+      <section class="slide" data-index="8">
+        <div class="slide-watermark">08</div>
+        <div class="slide-inner">
+          <div class="slide-head animate-item">
+            <div class="eyebrow">释放连接</div>
+            <h2 class="slide-title">四次挥手 · Four-way Termination</h2>
+            <p class="slide-desc">全双工连接需双方分别确认，才能安全释放</p>
+          </div>
+          <div class="handshake-stage" id="terminationStage">
+            <div class="peer">
+              <div class="peer-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/></svg></div>
+              <div class="peer-name">客户端 Client</div>
+              <div class="state-badge" id="tmClientState">ESTABLISHED</div>
+            </div>
+            <div class="messages">
+              <div class="message-row dir-right">
+                <div class="msg-label">① FIN=1, seq=u</div>
+                <div class="msg-track"><div class="msg-fill"></div><div class="msg-arrow"></div></div>
+              </div>
+              <div class="message-row dir-left">
+                <div class="msg-label">② ACK=1, ack=u+1</div>
+                <div class="msg-track"><div class="msg-fill"></div><div class="msg-arrow"></div></div>
+              </div>
+              <div class="message-row dir-left">
+                <div class="msg-label">③ FIN=1, ACK=1, seq=v</div>
+                <div class="msg-track"><div class="msg-fill"></div><div class="msg-arrow"></div></div>
+              </div>
+              <div class="message-row dir-right">
+                <div class="msg-label">④ ACK=1, ack=v+1</div>
+                <div class="msg-track"><div class="msg-fill"></div><div class="msg-arrow"></div></div>
+              </div>
+            </div>
+            <div class="peer">
+              <div class="peer-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="7" rx="1.5"/><rect x="4" y="14" width="16" height="7" rx="1.5"/><path d="M8 6.5h.01M8 17.5h.01"/></svg></div>
+              <div class="peer-name">服务器 Server</div>
+              <div class="state-badge" id="tmServerState">ESTABLISHED</div>
+            </div>
+          </div>
+          <div class="buffer-formula animate-item" style="margin-top:0;">💡 客户端为何要等待 <b>2MSL</b> 才进入 CLOSED？&nbsp;确保最后的 ACK 能到达对方，并让本连接的旧报文在网络中消失。</div>
+        </div>
+      </section>
+
+      <!-- 9 结束 -->
+      <section class="slide closing-slide" data-index="9">
+        <div class="orb orb-blue"></div>
+        <div class="orb orb-mint"></div>
+        <div class="closing-inner">
+          <div class="badge-pill animate-item">The End</div>
+          <h1 class="closing-title animate-item">感谢观看</h1>
+          <p class="closing-desc animate-item">TCP 用精密的状态机与算法，在不可靠的网络之上，构建起一座可靠的通信基石</p>
+          <div class="recap-row animate-item">
+            <div class="recap-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.07 0l1.41-1.41a5 5 0 00-7.07-7.07L10 6"/></svg>连接建立</div>
+            <div class="recap-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/></svg>可靠传输</div>
+            <div class="recap-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>流量控制</div>
+            <div class="recap-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15l3-4 3 2 4-6"/></svg>拥塞控制</div>
+            <div class="recap-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>连接释放</div>
+          </div>
+          <div class="credit">TCP / IP · Transport Layer Essentials</div>
+        </div>
+      </section>
+
+    </div>
+
+    <div class="bottom-bar">
+      <div class="counter" id="counter">01 / 10</div>
+      <div class="dots" id="dots"></div>
+      <div class="nav-group">
+        <button class="icon-btn" id="prevBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <button class="icon-btn" id="nextBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+      </div>
+    </div>
+
+    <div class="hint-toast" id="hintToast">使用 ← → 方向键或点击箭头翻页 · 按 F 全屏</div>
+
+  </div>
+</div>
+
+<script>
+const ICON_EXPAND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 00-2 2v3M16 3h3a2 2 0 012 2v3M8 21H5a2 2 0 01-2-2v-3M16 21h3a2 2 0 002-2v-3"/></svg>';
+const ICON_COMPRESS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v3a2 2 0 01-2 2H4M15 3v3a2 2 0 002 2h3M9 21v-3a2 2 0 00-2-2H4M15 21v-3a2 2 0 012-2h3"/></svg>';
+
+const stage = document.getElementById('stage');
+const deck = document.getElementById('deck');
+const slides = Array.from(document.querySelectorAll('.slide'));
+const total = slides.length;
+let current = 0;
+let animating = false;
+
+/* ---------- 缩放适配 16:9 ---------- */
+function fitStage(){
+  const availW = stage.clientWidth, availH = stage.clientHeight;
+  const margin = document.fullscreenElement ? 1 : 0.9;
+  const scale = Math.min(availW/1280, availH/720) * margin;
+  deck.style.transform = `scale(${scale})`;
+}
+window.addEventListener('resize', fitStage);
+window.addEventListener('load', fitStage);
+
+/* ---------- 全屏 ---------- */
+const fsBtn = document.getElementById('fullscreenBtn');
+fsBtn.innerHTML = ICON_EXPAND;
+fsBtn.addEventListener('click', ()=>{
+  if(!document.fullscreenElement){ stage.requestFullscreen && stage.requestFullscreen(); }
+  else { document.exitFullscreen && document.exitFullscreen(); }
+});
+document.addEventListener('fullscreenchange', ()=>{
+  const isFs = !!document.fullscreenElement;
+  fsBtn.innerHTML = isFs ? ICON_COMPRESS : ICON_EXPAND;
+  document.body.classList.toggle('fs-mode', isFs);
+  fitStage();
+});
+
+/* ---------- 圆点导航 ---------- */
+const dotsWrap = document.getElementById('dots');
+for(let i=0;i<total;i++){
+  const d = document.createElement('div');
+  d.className = 'dot' + (i===0?' active':'');
+  d.addEventListener('click', ()=>goTo(i));
+  dotsWrap.appendChild(d);
+}
+const dotEls = Array.from(dotsWrap.children);
+
+function updateUI(){
+  dotEls.forEach((d,i)=>d.classList.toggle('active', i===current));
+  document.getElementById('counter').textContent =
+    String(current+1).padStart(2,'0') + ' / ' + String(total).padStart(2,'0');
+  document.getElementById('progressFill').style.width = ((current+1)/total*100) + '%';
+  document.getElementById('prevBtn').disabled = current===0;
+  document.getElementById('nextBtn').disabled = current===total-1;
+}
+
+function goTo(idx){
+  if(idx<0||idx>=total||idx===current||animating) return;
+  animating = true;
+  const dir = idx>current ? 'next' : 'prev';
+  const curEl = slides[current], nextEl = slides[idx];
+  curEl.classList.remove('active');
+  curEl.classList.add(dir==='next'?'exit-left':'exit-right');
+  nextEl.classList.remove('exit-left','exit-right');
+  nextEl.style.transition = 'none';
+  nextEl.style.transform = dir==='next' ? 'translateX(50px)' : 'translateX(-50px)';
+  nextEl.style.opacity = '0';
+  void nextEl.offsetWidth;
+  nextEl.style.transition = '';
+  requestAnimationFrame(()=>{
+    nextEl.classList.add('active');
+    nextEl.style.transform = '';
+    nextEl.style.opacity = '';
+  });
+  setTimeout(()=>{
+    curEl.classList.remove('exit-left','exit-right');
+    animating = false;
+  }, 620);
+  current = idx;
+  updateUI();
+  playAnimation(current);
+}
+document.getElementById('prevBtn').addEventListener('click', ()=>goTo(current-1));
+document.getElementById('nextBtn').addEventListener('click', ()=>goTo(current+1));
+
+document.addEventListener('keydown', (e)=>{
+  if(['ArrowRight','ArrowDown','PageDown',' '].includes(e.key)){ e.preventDefault(); goTo(current+1); }
+  else if(['ArrowLeft','ArrowUp','PageUp'].includes(e.key)){ e.preventDefault(); goTo(current-1); }
+  else if(e.key.toLowerCase()==='f'){ fsBtn.click(); }
+});
+
+/* ---------- 动画：通用元素淡入 ---------- */
+function animateGeneric(slide){
+  const items = slide.querySelectorAll('.animate-item');
+  gsap.fromTo(items, {opacity:0, y:22}, {opacity:1, y:0, duration:.7, stagger:.1, ease:'power3.out', delay:.1});
+}
+
+/* ---------- 动画：首部字段 ---------- */
+function animateHeaderDiagram(slide){
+  const cells = slide.querySelectorAll('.header-cell');
+  gsap.fromTo(cells, {opacity:0, y:14}, {opacity:1, y:0, duration:.5, stagger:.045, ease:'power2.out', delay:.15});
+}
+
+/* ---------- 动画：消息序列（握手/挥手 通用） ---------- */
+function animateMessages(rows, badgeUpdates){
+  const tl = gsap.timeline();
+  rows.forEach((row, i)=>{
+    const fill = row.querySelector('.msg-fill');
+    const arrow = row.querySelector('.msg-arrow');
+    const label = row.querySelector('.msg-label');
+    gsap.set(fill, {width:'0%'});
+    gsap.set(arrow, {opacity:0});
+    gsap.set(label, {opacity:0, y:-8});
+    tl.to(label, {opacity:1, y:0, duration:.35}, '+=0.15')
+      .to(fill, {width:'100%', duration:.75, ease:'power2.inOut'}, '-=0.1')
+      .to(arrow, {opacity:1, duration:.2}, '-=0.15');
+    if(badgeUpdates && badgeUpdates[i]){
+      tl.call(badgeUpdates[i]);
+    }
+    tl.to({}, {duration:.25});
+  });
+  return tl;
+}
+
+function setBadge(el, text, cls){
+  el.textContent = text;
+  el.className = 'state-badge' + (cls?(' '+cls):'');
+}
+
+function animateHandshake(slide){
+  const c = document.getElementById('hsClientState');
+  const s = document.getElementById('hsServerState');
+  setBadge(c,'CLOSED'); setBadge(s,'LISTEN');
+  const rows = slide.querySelectorAll('.message-row');
+  animateMessages(rows, [
+    ()=>{ setBadge(c,'SYN_SENT','live'); setBadge(s,'SYN_RCVD','live'); },
+    ()=>{ setBadge(c,'SYN_SENT','live'); },
+    ()=>{ setBadge(c,'ESTABLISHED','done'); setBadge(s,'ESTABLISHED','done'); }
+  ]);
+}
+
+function animateTermination(slide){
+  const c = document.getElementById('tmClientState');
+  const s = document.getElementById('tmServerState');
+  setBadge(c,'ESTABLISHED','done'); setBadge(s,'ESTABLISHED','done');
+  const rows = slide.querySelectorAll('.message-row');
+  animateMessages(rows, [
+    ()=>{ setBadge(c,'FIN_WAIT_1','live'); },
+    ()=>{ setBadge(s,'CLOSE_WAIT','live'); setBadge(c,'FIN_WAIT_2','live'); },
+    ()=>{ setBadge(s,'LAST_ACK','live'); },
+    ()=>{ setBadge(c,'TIME_WAIT','live'); setBadge(s,'CLOSED'); setTimeout(()=>setBadge(c,'CLOSED'),900); }
+  ]);
+}
+
+/* ---------- 动画：滑动窗口 ---------- */
+function animateWindow(slide){
+  const group = slide.querySelector('.window-group');
+  const boxes = slide.querySelectorAll('#windowTrack .seg-box');
+  gsap.fromTo(boxes, {opacity:0, scale:.7}, {opacity:1, scale:1, duration:.45, stagger:.06, ease:'back.out(2)'});
+  gsap.fromTo(group, {boxShadow:'0 0 0 0 rgba(0,113,227,0)'}, {
+    boxShadow:'0 0 0 6px rgba(0,113,227,.12)', duration:1, delay:.8, yoyo:true, repeat:3, ease:'sine.inOut'
+  });
+}
+
+/* ---------- 动画：流量控制缓冲区 ---------- */
+function animateBuffer(slide){
+  const segs = slide.querySelectorAll('.buf-seg');
+  gsap.set(segs, {scaleX:0});
+  gsap.to(segs, {scaleX:1, duration:.7, stagger:.12, ease:'power3.out', delay:.15});
+}
+
+/* ---------- 动画：拥塞控制曲线 ---------- */
+function animateChart(slide){
+  const path = slide.querySelector('#cwndPath');
+  const len = path.getTotalLength();
+  gsap.set(path, {strokeDasharray:len, strokeDashoffset:len});
+  gsap.to(path, {strokeDashoffset:0, duration:2.2, ease:'power2.inOut'});
+
+  const dotsGroup = slide.querySelector('#cwndDots');
+  dotsGroup.innerHTML = '';
+  const points = [[180,120,'#0071e3'],[380,60,'#29cc6a'],[380,200,'#ff9f0a'],[580,225,'#ff453a']];
+  points.forEach((p,i)=>{
+    const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',p[0]); c.setAttribute('cy',p[1]); c.setAttribute('r',6);
+    c.setAttribute('fill', p[2]); c.setAttribute('opacity',0);
+    dotsGroup.appendChild(c);
+    gsap.to(c, {opacity:1, duration:.4, delay:1.2+i*0.28});
+  });
+}
+
+/* ---------- 分发 ---------- */
+function playAnimation(idx){
+  const slide = slides[idx];
+  animateGeneric(slide);
+  if(idx===3) animateHeaderDiagram(slide);
+  if(idx===4) animateHandshake(slide);
+  if(idx===5) animateWindow(slide);
+  if(idx===6) animateBuffer(slide);
+  if(idx===7) animateChart(slide);
+  if(idx===8) animateTermination(slide);
+}
+
+/* ---------- 初始化 ---------- */
+updateUI();
+fitStage();
+setTimeout(()=>playAnimation(0), 200);
+
+const hint = document.getElementById('hintToast');
+setTimeout(()=>{ gsap.to(hint, {opacity:1, y:0, duration:.5}); }, 900);
+setTimeout(()=>{ gsap.to(hint, {opacity:0, duration:.6}); }, 5200);
+</script>
+</body>
+</html>
