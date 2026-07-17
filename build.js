@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
 import screenshots from './scripts/screenshots.js';
@@ -7,6 +6,7 @@ const slidesDir = 'slides';
 const publicDir = 'public';
 const routesFile = 'routes.json';
 const templatesDir = 'templates';
+const ASSETS_THUMBS_DIR = 'assets/thumbs';
 
 const escapeHtml = (str) =>
   str.replace(/[&<>"']/g, (c) => ({
@@ -105,11 +105,32 @@ for (const slideFile of slides) {
   console.log(`✓ ${slideFile} → ${route}`);
 }
 
-// 生成缩略图
-const thumbResults = await screenshots(presentations, { publicDir });
-const thumbMap = Object.fromEntries(thumbResults.map(r => [r.route, r.thumbnailUrl]));
-for (const p of presentations) {
-  p.thumbnailUrl = thumbMap[p.route] || null;
+// 生成缩略图：Vercel 环境直接复制预置图片，本地环境运行 Playwright 截图
+const isVercel = !!process.env.VERCEL;
+if (isVercel) {
+  const assetsThumbsPath = path.join(ASSETS_THUMBS_DIR);
+  const publicThumbsPath = path.join(publicDir, 'thumbs');
+  if (fs.existsSync(assetsThumbsPath)) {
+    fs.mkdirSync(publicThumbsPath, { recursive: true });
+    for (const f of fs.readdirSync(assetsThumbsPath)) {
+      if (f.endsWith('.png')) {
+        fs.copyFileSync(path.join(assetsThumbsPath, f), path.join(publicThumbsPath, f));
+      }
+    }
+    console.log(`✓ 从 ${ASSETS_THUMBS_DIR} 复制预置缩略图`);
+  }
+  for (const p of presentations) {
+    const routeBase = p.route.replace(/^\//, '') || 'index';
+    const thumbName = routeBase.replace(/[^a-zA-Z0-9_-]/g, '_') + '.png';
+    const thumbPath = path.join(publicThumbsPath, thumbName);
+    p.thumbnailUrl = fs.existsSync(thumbPath) ? `/thumbs/${thumbName}` : null;
+  }
+} else {
+  const thumbResults = await screenshots(presentations, { publicDir });
+  const thumbMap = Object.fromEntries(thumbResults.map(r => [r.route, r.thumbnailUrl]));
+  for (const p of presentations) {
+    p.thumbnailUrl = thumbMap[p.route] || null;
+  }
 }
 
 // 生成首页索引（模板位于 templates/ 目录）
