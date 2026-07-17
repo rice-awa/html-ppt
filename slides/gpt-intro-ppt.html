@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="data:," />
+<title>GPT / 从下一词预测到通用协作界面</title>
+<style>
+  :root {
+    --ink: #0b1020;
+    --ink-2: #111a30;
+    --paper: #f4f1e9;
+    --paper-2: #ebe6da;
+    --lime: #c7f36b;
+    --coral: #ff775f;
+    --blue: #9ab8ff;
+    --muted: #8690a7;
+    --line: rgba(255,255,255,.14);
+    --dark-line: rgba(11,16,32,.15);
+    --mono: "SFMono-Regular", "Cascadia Code", "Roboto Mono", Consolas, monospace;
+    --sans: "Avenir Next", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+    --serif: "Iowan Old Style", "Baskerville", "Songti SC", serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; }
+  body {
+    background: #060a14;
+    color: white;
+    font-family: var(--sans);
+    user-select: none;
+    position: relative;
+  }
+  button { font: inherit; }
+  .stage {
+    width: 1920px;
+    height: 1080px;
+    position: fixed;
+    left: 0;
+    top: 0;
+    transform-origin: top left;
+    transform: scale(var(--deck-scale, 1));
+    flex: none;
+  }
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    overflow: hidden;
+    padding: 72px 88px 80px;
+  }
+  .slide.active { display: block; animation: enter .55s cubic-bezier(.2,.75,.2,1) both; }
+  @keyframes enter { from { opacity: 0; transform: translateY(14px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  @media (prefers-reduced-motion: reduce) {
+    .slide.active { animation: none; }
+    *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+  }
+  .dark { background: var(--ink); color: var(--paper); }
+  .paper { background: var(--paper); color: var(--ink); }
+  .blue { background: #dbe5ff; color: var(--ink); }
+  .coral { background: var(--coral); color: var(--ink); }
+  .grid-lines {
+    position: absolute; inset: 0; pointer-events: none; opacity: .12;
+    background-image: linear-gradient(var(--paper) 1px, transparent 1px), linear-gradient(90deg, var(--paper) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: linear-gradient(to bottom, black, transparent 85%);
+  }
+  .paper .grid-lines, .blue .grid-lines { opacity: .1; background-image: linear-gradient(var(--ink) 1px, transparent 1px), linear-gradient(90deg, var(--ink) 1px, transparent 1px); }
+  .eyebrow, .micro, .slide-id, .chip, .caption, .source, .nav-label {
+    font-family: var(--mono);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .eyebrow { font-size: 18px; color: var(--lime); margin-bottom: 26px; }
+  .paper .eyebrow, .blue .eyebrow { color: #5368a8; }
+  .micro { font-size: 14px; letter-spacing: .12em; }
+  .slide-id { position: absolute; right: 88px; top: 76px; font-size: 15px; opacity: .58; }
+  h1, h2, h3, p { margin: 0; text-wrap: pretty; }
+  h1 { font-size: 126px; line-height: .88; letter-spacing: -.075em; font-weight: 700; }
+  h2 { font-size: 74px; line-height: .95; letter-spacing: -.065em; font-weight: 700; }
+  h3 { font-size: 30px; line-height: 1.08; letter-spacing: -.03em; }
+  .lead { font-size: 29px; line-height: 1.35; letter-spacing: -.025em; }
+  .body { font-size: 22px; line-height: 1.45; }
+  .muted { color: var(--muted); }
+  .dark .muted { color: #9ba4b9; }
+  .paper .muted, .blue .muted { color: #5d6474; }
+  .rule { height: 1px; background: var(--line); }
+  .paper .rule, .blue .rule { background: var(--dark-line); }
+  .footer {
+    position: absolute; left: 88px; right: 88px; bottom: 42px; display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--mono); font-size: 14px; letter-spacing: .06em; opacity: .62;
+  }
+  .footer strong { color: var(--lime); font-weight: 400; }
+  .paper .footer strong, .blue .footer strong { color: #5368a8; }
+  .pill { border: 1px solid currentColor; border-radius: 999px; padding: 8px 13px; font-family: var(--mono); font-size: 14px; letter-spacing: .05em; }
+  .accent { color: var(--lime); }
+  .paper .accent, .blue .accent { color: #5368a8; }
+
+  /* 01 */
+  .hero { display: grid; grid-template-columns: 1.04fr .96fr; align-items: center; height: 100%; position: relative; z-index: 1; }
+  .hero-copy { padding-bottom: 58px; }
+  .hero-copy .lead { max-width: 600px; margin-top: 46px; color: #aeb7c9; }
+  .hero-meta { margin-top: 62px; display: flex; gap: 12px; align-items: center; }
+  .hero-mark { width: 26px; height: 26px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 0 8px rgba(199,243,107,.12), 0 0 42px rgba(199,243,107,.38); }
+  .hero-art { height: 780px; position: relative; display: grid; place-items: center; }
+  .orbit { position: absolute; border: 1px solid rgba(199,243,107,.35); border-radius: 50%; transform: rotate(-21deg); }
+  .orbit.one { width: 770px; height: 310px; }
+  .orbit.two { width: 650px; height: 650px; border-color: rgba(154,184,255,.23); transform: rotate(38deg); }
+  .orbit.three { width: 470px; height: 870px; border-color: rgba(255,119,95,.2); transform: rotate(72deg); }
+  .core { width: 312px; height: 312px; border-radius: 50%; background: var(--lime); color: var(--ink); display: grid; place-items: center; position: relative; z-index: 2; box-shadow: 0 0 80px rgba(199,243,107,.16); animation: breathe 5s ease-in-out infinite; }
+  @keyframes breathe { 50% { transform: scale(1.025); box-shadow: 0 0 110px rgba(199,243,107,.22); } }
+  .core span { font-size: 88px; font-weight: 700; letter-spacing: -.1em; transform: translateX(-5px); }
+  .token { position: absolute; z-index: 3; padding: 13px 17px; border: 1px solid rgba(244,241,233,.28); color: var(--paper); background: rgba(17,26,48,.74); backdrop-filter: blur(8px); font-family: var(--mono); font-size: 16px; }
+  .token.a { top: 110px; left: 65px; transform: rotate(-8deg); }
+  .token.b { top: 230px; right: 25px; transform: rotate(6deg); color: var(--lime); }
+  .token.c { bottom: 132px; left: 120px; transform: rotate(5deg); color: var(--blue); }
+  .token.d { bottom: 210px; right: 56px; transform: rotate(-7deg); color: var(--coral); }
+  .hero-side-note { position: absolute; right: 0; bottom: 28px; width: 190px; font-family: var(--mono); font-size: 14px; line-height: 1.5; color: #8f99b0; }
+
+  /* 02 */
+  .misread { height: 100%; position: relative; z-index: 1; padding-top: 115px; }
+  .misread-head { display: flex; justify-content: space-between; align-items: end; }
+  .misread-head .lead { width: 460px; font-size: 23px; }
+  .quote { margin-top: 102px; display: flex; flex-direction: column; gap: 16px; }
+  .quote-row { display: flex; align-items: baseline; gap: 24px; }
+  .quote-row .num { width: 50px; color: var(--coral); font: 18px var(--mono); }
+  .quote-row .word { font-size: 76px; line-height: 1; letter-spacing: -.065em; font-weight: 600; }
+  .quote-row .hint { font: 18px var(--mono); color: #a0a8ba; letter-spacing: .02em; }
+  .quote-row:nth-child(2) .word { color: var(--lime); }
+  .quote-row:nth-child(3) .word { color: var(--blue); }
+  .formula { position: absolute; right: 80px; bottom: 150px; width: 520px; padding: 28px 32px; border: 1px solid rgba(244,241,233,.22); background: rgba(255,255,255,.04); }
+  .formula .micro { color: var(--coral); margin-bottom: 15px; }
+  .formula p { font-family: var(--mono); font-size: 20px; line-height: 1.55; color: #d4d9e5; }
+  .formula b { color: var(--lime); font-weight: 400; }
+
+  /* 03 */
+  .transformer { height: 100%; position: relative; z-index: 1; padding-top: 88px; }
+  .transformer .lead { width: 650px; margin-top: 28px; color: #556078; }
+  .flow { position: absolute; left: 88px; right: 88px; top: 390px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+  .flow::before { content: ""; position: absolute; top: 116px; left: 11%; right: 11%; height: 2px; background: var(--ink); opacity: .26; }
+  .flow-step { position: relative; min-height: 310px; padding: 24px; border: 1px solid var(--dark-line); background: rgba(255,255,255,.28); }
+  .flow-step:nth-child(2) { background: var(--ink); color: var(--paper); transform: translateY(-34px); }
+  .flow-step:nth-child(3) { background: var(--lime); }
+  .flow-step:nth-child(4) { background: var(--coral); transform: translateY(34px); }
+  .flow-step .index { font: 17px var(--mono); opacity: .6; }
+  .flow-step .glyph { width: 136px; height: 136px; margin: 30px auto 34px; position: relative; display: grid; place-items: center; }
+  .flow-step .glyph::before, .flow-step .glyph::after { content: ""; position: absolute; inset: 0; border: 1px solid currentColor; border-radius: 50%; opacity: .4; }
+  .flow-step .glyph::after { inset: 18px; border-style: dashed; animation: spin 10s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .flow-step:nth-child(1) .glyph span { font: 25px var(--mono); transform: translateX(10px); }
+  .flow-step:nth-child(2) .glyph span { font-size: 46px; letter-spacing: -.3em; transform: translateX(-7px); }
+  .flow-step:nth-child(3) .glyph span { width: 66px; height: 66px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 14px rgba(11,16,32,.12); }
+  .flow-step:nth-child(4) .glyph span { font: 36px var(--mono); }
+  .flow-step h3 { font-size: 28px; }
+  .flow-step p { margin-top: 12px; font-size: 18px; line-height: 1.4; opacity: .72; }
+  .transformer-note { position: absolute; right: 88px; top: 114px; width: 250px; font: 15px/1.55 var(--mono); color: #657086; }
+
+  /* 04 */
+  .capabilities { height: 100%; position: relative; z-index: 1; padding-top: 84px; }
+  .cap-grid { margin-top: 70px; display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--dark-line); border-left: 1px solid var(--dark-line); }
+  .cap { min-height: 280px; padding: 34px 38px; border-right: 1px solid var(--dark-line); border-bottom: 1px solid var(--dark-line); position: relative; overflow: hidden; }
+  .cap::after { content: ""; position: absolute; width: 180px; height: 180px; border: 1px solid rgba(11,16,32,.16); border-radius: 50%; right: -55px; bottom: -58px; }
+  .cap:nth-child(2) { background: var(--ink); color: var(--paper); }
+  .cap:nth-child(3) { background: var(--coral); }
+  .cap:nth-child(4) { background: var(--lime); }
+  .cap .cap-no { font: 17px var(--mono); opacity: .54; }
+  .cap h3 { margin-top: 60px; font-size: 40px; }
+  .cap p { margin-top: 15px; max-width: 560px; font-size: 20px; line-height: 1.4; opacity: .72; }
+  .cap .tag { position: absolute; right: 34px; top: 34px; font: 14px var(--mono); opacity: .62; }
+
+  /* 05 */
+  .prompt-slide { height: 100%; position: relative; z-index: 1; padding-top: 70px; }
+  .prompt-layout { display: grid; grid-template-columns: .72fr 1.28fr; gap: 100px; align-items: center; height: 88%; }
+  .prompt-copy h2 { max-width: 640px; }
+  .prompt-copy .lead { margin-top: 32px; max-width: 480px; color: #aeb7c9; }
+  .prompt-copy .small-rule { width: 130px; height: 4px; background: var(--coral); margin-top: 55px; }
+  .editor { background: #f8f5ed; color: var(--ink); border: 16px solid #25314b; box-shadow: 28px 28px 0 rgba(199,243,107,.22); min-height: 600px; position: relative; }
+  .editor-bar { height: 52px; background: #e9e4d9; display: flex; align-items: center; gap: 9px; padding: 0 18px; border-bottom: 1px solid var(--dark-line); }
+  .editor-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--coral); }
+  .editor-dot:nth-child(2) { background: #d3b858; }
+  .editor-dot:nth-child(3) { background: #88b75c; }
+  .editor-title { margin-left: 18px; font: 14px var(--mono); color: #626b79; }
+  .editor-body { padding: 44px 52px; }
+  .editor-line { display: grid; grid-template-columns: 42px 1fr; min-height: 52px; font: 21px/1.5 var(--mono); }
+  .editor-line .ln { color: #a4a9ad; }
+  .editor-line .txt { color: #252d42; }
+  .editor-line .key { color: #6970c4; }
+  .editor-line .value { color: #bd553d; }
+  .editor-line .comment { color: #78946c; }
+  .editor-footer { position: absolute; left: 0; right: 0; bottom: 0; background: #e9e4d9; padding: 14px 22px; display: flex; justify-content: space-between; color: #69717b; font: 13px var(--mono); }
+  .prompt-callout { position: absolute; right: 70px; bottom: 60px; background: var(--lime); color: var(--ink); padding: 15px 20px; font-weight: 600; transform: rotate(-3deg); box-shadow: 8px 8px 0 rgba(11,16,32,.24); }
+
+  /* 06 */
+  .uncertainty { height: 100%; position: relative; z-index: 1; padding-top: 85px; }
+  .uncertainty-top { display: flex; justify-content: space-between; align-items: end; }
+  .uncertainty-top .lead { width: 480px; color: #556078; }
+  .uncertainty-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 76px; }
+  .uncertainty-box { min-height: 470px; padding: 38px 42px; border: 1px solid var(--dark-line); }
+  .uncertainty-box.know { background: var(--ink); color: var(--paper); }
+  .uncertainty-box.verify { background: var(--coral); }
+  .box-label { display: flex; justify-content: space-between; padding-bottom: 24px; border-bottom: 1px solid currentColor; opacity: .72; font: 15px var(--mono); }
+  .uncertainty-box h3 { margin-top: 46px; font-size: 47px; max-width: 520px; }
+  .uncertainty-box ul { margin: 42px 0 0; padding: 0; list-style: none; display: grid; gap: 18px; }
+  .uncertainty-box li { display: grid; grid-template-columns: 26px 1fr; gap: 12px; align-items: start; font-size: 20px; line-height: 1.35; }
+  .bullet-copy { display: block; }
+  .uncertainty-box li::before { content: "→"; font: 18px var(--mono); color: var(--lime); }
+  .verify li::before { color: var(--ink); }
+  .uncertainty-foot { margin-top: 24px; display: flex; gap: 12px; align-items: center; font: 15px var(--mono); color: #5d6474; }
+
+  /* 07 */
+  .collab { height: 100%; position: relative; z-index: 1; padding-top: 84px; }
+  .collab h2 { max-width: 680px; }
+  .collab-grid { margin-top: 80px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+  .collab-card { min-height: 400px; padding: 30px 34px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); position: relative; }
+  .collab-card:nth-child(2) { background: rgba(199,243,107,.12); }
+  .collab-card:nth-child(3) { background: rgba(154,184,255,.1); }
+  .collab-card .big-no { font: 82px/.8 var(--mono); color: var(--lime); }
+  .collab-card:nth-child(2) .big-no { color: var(--coral); }
+  .collab-card:nth-child(3) .big-no { color: var(--blue); }
+  .collab-card h3 { margin-top: 80px; font-size: 36px; }
+  .collab-card p { margin-top: 18px; color: #aeb7c9; font-size: 20px; line-height: 1.45; max-width: 420px; }
+  .collab-card .verb { position: absolute; right: 28px; top: 32px; font: 14px var(--mono); color: #8f99b0; }
+  .collab-line { position: absolute; bottom: 118px; left: 88px; right: 88px; display: flex; align-items: center; gap: 20px; font: 16px var(--mono); color: #8f99b0; }
+  .collab-line::before { content: ""; height: 1px; flex: 1; background: var(--line); }
+  .collab-line::after { content: ""; height: 1px; flex: 1; background: var(--line); }
+
+  /* 08 */
+  .closing { height: 100%; position: relative; z-index: 1; display: grid; grid-template-columns: 1.1fr .9fr; align-items: center; }
+  .closing-copy { padding-bottom: 30px; }
+  .closing-copy h2 { font-size: 106px; max-width: 920px; }
+  .closing-copy .lead { margin-top: 42px; color: #aeb7c9; max-width: 630px; }
+  .closing-art { position: relative; height: 680px; display: grid; place-items: center; }
+  .closing-orb { width: 430px; height: 430px; border-radius: 50%; background: var(--coral); display: grid; place-items: center; position: relative; box-shadow: 45px 45px 0 rgba(199,243,107,.76); }
+  .closing-orb::before { content: ""; position: absolute; inset: -90px; border: 1px solid rgba(154,184,255,.35); border-radius: 50%; }
+  .closing-orb::after { content: "GPT"; font: 86px var(--mono); letter-spacing: -.1em; transform: translateX(-8px); }
+  .closing-note { position: absolute; right: 0; bottom: 74px; font: 16px/1.55 var(--mono); color: #aeb7c9; width: 250px; }
+  .sources { position: absolute; left: 88px; right: 88px; bottom: 100px; border-top: 1px solid var(--line); padding-top: 18px; display: flex; justify-content: space-between; gap: 40px; color: #8f99b0; font: 13px/1.5 var(--mono); }
+  .sources a { color: #b9c5e8; text-decoration: none; }
+  .sources a:hover { color: var(--lime); }
+
+  /* controls */
+  .controls { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 12px; }
+  .control-btn, .tweak-btn { border: 1px solid rgba(255,255,255,.22); color: rgba(255,255,255,.86); background: rgba(8,12,24,.76); backdrop-filter: blur(12px); cursor: pointer; transition: background .2s, color .2s, transform .2s; }
+  .control-btn { width: 46px; height: 38px; font-size: 21px; }
+  .control-btn:hover, .tweak-btn:hover { background: var(--lime); color: var(--ink); transform: translateY(-2px); }
+  .counter { color: rgba(255,255,255,.72); font: 14px var(--mono); min-width: 78px; text-align: center; }
+  .tweak-btn { position: fixed; right: 24px; bottom: 24px; padding: 10px 14px; font: 13px var(--mono); z-index: 60; }
+  .fullscreen-btn {
+    position: fixed;
+    right: 124px;
+    bottom: 24px;
+    padding: 10px 14px;
+    border: 1px solid rgba(255,255,255,.22);
+    color: rgba(255,255,255,.86);
+    background: rgba(8,12,24,.76);
+    backdrop-filter: blur(12px);
+    cursor: pointer;
+    z-index: 60;
+    font: 13px var(--mono);
+  }
+  .fullscreen-btn:hover { background: var(--lime); color: var(--ink); }
+  .mobile-nav { display: none; }
+  @media (max-width: 700px), (pointer: coarse) {
+    .controls { bottom: 14px; }
+    .deck-hint { display: none; }
+    .fullscreen-btn { right: 14px; bottom: 70px; min-height: 44px; }
+    .tweak-btn { right: 14px; bottom: 14px; min-height: 44px; }
+    .mobile-nav { position: fixed; inset: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; pointer-events: none; z-index: 55; }
+    .mobile-nav button { pointer-events: auto; width: 48px; height: 72px; border: 1px solid rgba(255,255,255,.28); border-radius: 12px; color: white; background: rgba(8,12,24,.72); backdrop-filter: blur(10px); font-size: 48px; line-height: 1; cursor: pointer; }
+    .mobile-nav button:active { background: var(--lime); color: var(--ink); transform: scale(.94); }
+  }
+  @media (display-mode: fullscreen) {
+    .fullscreen-btn { display: none; }
+  }
+  .tweaks { position: fixed; right: 24px; bottom: 72px; width: 230px; background: rgba(8,12,24,.92); border: 1px solid rgba(255,255,255,.18); backdrop-filter: blur(16px); padding: 18px; z-index: 60; color: white; display: none; }
+  .tweaks.open { display: block; }
+  .tweaks h4 { margin: 0 0 16px; font: 14px var(--mono); color: var(--lime); }
+  .tweaks label { display: flex; justify-content: space-between; gap: 12px; font: 13px var(--mono); color: #c6cede; margin-top: 14px; }
+  .tweaks input { accent-color: var(--lime); }
+  .deck-hint { position: fixed; left: 24px; bottom: 28px; z-index: 50; color: rgba(255,255,255,.42); font: 12px var(--mono); }
+  .text-fragment { display: inline-block; will-change: transform, opacity; }
+  .text-fragment:empty { display: none; }
+  .quiet .text-fragment { will-change: auto; }
+  .quiet .orbit, .quiet .closing-orb::before { opacity: .42; }
+  .quiet .core { animation: none; box-shadow: none; }
+  .quiet .grid-lines { opacity: .05; }
+</style>
+</head>
+<body>
+<main class="stage" aria-label="GPT 介绍演示文稿">
+  <section class="slide dark active" data-screen-label="01 GPT / 开场">
+    <div class="grid-lines"></div>
+    <div class="slide-id">01 / GPT</div>
+    <div class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow" data-motion="eyebrow">A field guide to generative intelligence</div>
+        <h1 data-motion="title">GPT<br><span class="accent">不是答案。</span><br>是引擎。</h1>
+        <p class="lead" data-motion="copy">从“预测下一个词”出发，GPT 逐渐变成一种新的协作界面：把意图、上下文和行动接在一起。</p>
+        <div class="hero-meta"><span class="hero-mark"></span><span class="pill">8 frames / 01 idea</span><span class="muted micro">按 → 开始</span></div>
+      </div>
+      <div class="hero-art" data-motion="visual" aria-hidden="true">
+        <div class="orbit one"></div><div class="orbit two"></div><div class="orbit three"></div>
+        <div class="core"><span>GPT</span></div>
+        <div class="token a">context →</div><div class="token b">probability</div><div class="token c">attention</div><div class="token d">action</div>
+        <div class="hero-side-note">模型的输出不是从真空里“想出来”的。<br><br>它在每一步都读取前文，再决定下一步。</div>
+      </div>
+    </div>
+    <div class="footer"><span>GENERATIVE PRE-TRAINED TRANSFORMER</span><strong>01 / 08</strong></div>
+  </section>
+
+  <section class="slide dark" data-screen-label="02 下一词">
+    <div class="grid-lines"></div>
+    <div class="slide-id">02 / NEXT TOKEN</div>
+    <div class="misread">
+      <div class="misread-head"><div><div class="eyebrow" data-motion="eyebrow">先拆掉一个误解</div><h2 data-motion="title">GPT 的基本动作<br>非常简单。</h2></div><p class="lead" data-motion="copy">它不是先从数据库里找到一段“正确答案”，再贴给你。</p></div>
+      <div class="quote" aria-label="示例句子">
+        <div class="quote-row" data-motion="quote"><span class="num">01</span><span class="word">今天的天气</span><span class="hint">给出上下文</span></div>
+        <div class="quote-row" data-motion="quote"><span class="num">02</span><span class="word">很</span><span class="hint">选择概率最高的延续之一</span></div>
+        <div class="quote-row" data-motion="quote"><span class="num">03</span><span class="word">好</span><span class="hint">再把新词放回上下文</span></div>
+        <div class="quote-row" data-motion="quote"><span class="num">04</span><span class="word">，适合</span><span class="hint">循环，直到完成</span></div>
+      </div>
+      <div class="formula"><div class="micro">the loop</div><p>前文 <b>+</b> 模型参数<br><b>→</b> 下一个 token 的概率分布<br><b>→</b> 采样 / 选择<br><b>→</b> 继续生成</p></div>
+    </div>
+    <div class="footer"><span>每一步都在“接着说”，不是一次性吐出整篇答案</span><strong>02 / 08</strong></div>
+  </section>
+
+  <section class="slide paper" data-screen-label="03 Transformer">
+    <div class="grid-lines"></div>
+    <div class="slide-id">03 / THE MACHINE</div>
+    <div class="transformer">
+      <div class="eyebrow" data-motion="eyebrow">Inside the transformer</div>
+      <h2 data-motion="title">四个动作，<br>撑起一次对话。</h2>
+      <p class="lead" data-motion="copy">GPT 的“聪明”不是一个神秘按钮，而是大量参数在同一个循环里协同工作。</p>
+      <div class="transformer-note">attention 不等于“理解”<br>但它让模型能在很长的上下文里，找到此刻更相关的部分。</div>
+      <div class="flow" data-motion="visual">
+        <article class="flow-step"><div class="index">01 / ENCODE</div><div class="glyph"><span>你&nbsp; 好&nbsp; 世&nbsp; 界</span></div><h3>切成 token</h3><p>文字先被转换成模型可以处理的离散片段。</p></article>
+        <article class="flow-step"><div class="index">02 / ATTEND</div><div class="glyph"><span>···</span></div><h3>寻找关联</h3><p>注意力机制给不同片段分配不同的权重。</p></article>
+        <article class="flow-step"><div class="index">03 / PREDICT</div><div class="glyph"><span></span></div><h3>计算概率</h3><p>模型为可能出现的下一个 token 排序。</p></article>
+        <article class="flow-step"><div class="index">04 / DECODE</div><div class="glyph"><span>↗</span></div><h3>生成与迭代</h3><p>选择一个延续，再把它放回上下文继续走。</p></article>
+      </div>
+    </div>
+    <div class="footer"><span>结构决定能力的上限；上下文决定此刻的表现</span><strong>03 / 08</strong></div>
+  </section>
+
+  <section class="slide paper" data-screen-label="04 能力">
+    <div class="grid-lines"></div>
+    <div class="slide-id">04 / CAPABILITIES</div>
+    <div class="capabilities">
+      <div class="eyebrow" data-motion="eyebrow">One model, many work surfaces</div>
+      <h2 data-motion="title">能力不是菜单。<br>是组合。</h2>
+      <div class="cap-grid" data-motion="visual">
+        <article class="cap"><div class="cap-no">A</div><div class="tag">language</div><h3>写作与重写</h3><p>从零起草、改变语气、压缩信息、翻译表达。</p></article>
+        <article class="cap"><div class="cap-no">B</div><div class="tag">reasoning</div><h3>分析与推理</h3><p>拆解问题、比较方案、发现约束、组织决策。</p></article>
+        <article class="cap"><div class="cap-no">C</div><div class="tag">code</div><h3>代码与工具</h3><p>解释代码、生成草稿、调用工具、把意图变成步骤。</p></article>
+        <article class="cap"><div class="cap-no">D</div><div class="tag">multimodal</div><h3>跨媒介输入</h3><p>在支持的产品与模型中，处理文字、图像、文件或声音。</p></article>
+      </div>
+    </div>
+    <div class="footer"><span>具体能力取决于模型、产品配置、工具与权限</span><strong>04 / 08</strong></div>
+  </section>
+
+  <section class="slide dark" data-screen-label="05 Prompt">
+    <div class="grid-lines"></div>
+    <div class="slide-id">05 / PROMPTING</div>
+    <div class="prompt-slide">
+      <div class="prompt-layout">
+        <div class="prompt-copy"><div class="eyebrow" data-motion="eyebrow">A prompt is a workspace</div><h2 data-motion="title">好的提示词，<br>不是咒语。</h2><p class="lead" data-motion="copy">它更像一张工作台：把目标、背景、边界和交付格式摆到模型面前。</p><div class="small-rule"></div><p class="muted body" style="margin-top:24px;max-width:420px;">清楚 ≠ 写得长。<br>清楚 = 让模型知道什么重要。</p></div>
+        <div class="editor" data-motion="visual" aria-label="提示词编辑器示意"><div class="editor-bar"><span class="editor-dot"></span><span class="editor-dot"></span><span class="editor-dot"></span><span class="editor-title">brief.md</span></div><div class="editor-body">
+          <div class="editor-line"><span class="ln">01</span><span class="txt"><span class="key">目标：</span><span class="value">把研究结果讲给新手</span></span></div>
+          <div class="editor-line"><span class="ln">02</span><span class="txt"><span class="key">背景：</span><span class="value">他们没有机器学习基础</span></span></div>
+          <div class="editor-line"><span class="ln">03</span><span class="txt"><span class="key">约束：</span><span class="value">不超过 300 字，避免术语</span></span></div>
+          <div class="editor-line"><span class="ln">04</span><span class="txt"><span class="key">格式：</span><span class="value">先结论，再用 3 点解释</span></span></div>
+          <div class="editor-line"><span class="ln">05</span><span class="txt"><span class="comment"># 如果信息不足，先指出缺口</span></span></div>
+          <div class="editor-line"><span class="ln">06</span><span class="txt"> </span></div>
+          <div class="editor-line"><span class="ln">07</span><span class="txt"><span class="key">输出：</span><span class="value">一版可直接口播的中文稿</span></span></div>
+        </div><div class="editor-footer"><span>7 lines / 4 constraints</span><span>ready to run</span></div><div class="prompt-callout">上下文越好，协作越像协作</div></div>
+      </div>
+    </div>
+    <div class="footer"><span>INSTRUCTION → CONTEXT → FORMAT → FEEDBACK</span><strong>05 / 08</strong></div>
+  </section>
+
+  <section class="slide blue" data-screen-label="06 不确定性">
+    <div class="grid-lines"></div>
+    <div class="slide-id">06 / UNCERTAINTY</div>
+    <div class="uncertainty">
+      <div class="uncertainty-top"><div><div class="eyebrow" data-motion="eyebrow">Fluent ≠ infallible</div><h2 data-motion="title">流畅，不能<br>代替真实。</h2></div><p class="lead" data-motion="copy">GPT 可以把不确定的内容说得很像确定的内容。使用它，也要设计验证回路。</p></div>
+      <div class="uncertainty-columns" data-motion="visual">
+        <article class="uncertainty-box know"><div class="box-label"><span>USE IT FOR</span><span>01</span></div><h3>把它当成<br>思考放大器。</h3><ul><li><span class="bullet-copy">整理你已经拥有的材料</span></li><li><span class="bullet-copy">提出反例与替代解释</span></li><li><span class="bullet-copy">把模糊想法变成可执行草稿</span></li></ul></article>
+        <article class="uncertainty-box verify"><div class="box-label"><span>VERIFY WHEN</span><span>02</span></div><h3>把它当成<br>需要复核的合作者。</h3><ul><li><span class="bullet-copy">事实会影响钱、健康或安全</span></li><li><span class="bullet-copy">内容涉及最新变化或专门知识</span></li><li><span class="bullet-copy">输出需要进入生产系统或正式决策</span></li></ul></article>
+      </div>
+      <div class="uncertainty-foot"><span class="pill">原则</span><span>让 GPT 生成候选答案，让证据决定最终答案。</span></div>
+    </div>
+    <div class="footer"><span>CONFIDENCE IS A FEELING; EVIDENCE IS A PROCESS</span><strong>06 / 08</strong></div>
+  </section>
+
+  <section class="slide dark" data-screen-label="07 协作">
+    <div class="grid-lines"></div>
+    <div class="slide-id">07 / COLLABORATION</div>
+    <div class="collab">
+      <div class="eyebrow" data-motion="eyebrow">Human × GPT</div>
+      <h2 data-motion="title">最好的结果，<br>来自分工。</h2>
+      <div class="collab-grid" data-motion="visual">
+        <article class="collab-card"><div class="big-no">01</div><div class="verb">人类定义</div><h3>方向</h3><p>为什么做、为谁做、什么不能牺牲——这些需要判断，而不是自动补全。</p></article>
+        <article class="collab-card"><div class="big-no">02</div><div class="verb">GPT 加速</div><h3>展开</h3><p>快速生成多个版本，把隐含假设摊开，把思路推进到下一步。</p></article>
+        <article class="collab-card"><div class="big-no">03</div><div class="verb">共同迭代</div><h3>收敛</h3><p>用反馈、证据和真实约束反复修正，直到结果值得被使用。</p></article>
+      </div>
+      <div class="collab-line"><span>intent</span><span>drafts</span><span>judgment</span></div>
+    </div>
+    <div class="footer"><span>不要把判断外包；把机械摩擦外包</span><strong>07 / 08</strong></div>
+  </section>
+
+  <section class="slide dark" data-screen-label="08 结语">
+    <div class="grid-lines"></div>
+    <div class="slide-id">08 / TAKEAWAY</div>
+    <div class="closing">
+      <div class="closing-copy"><div class="eyebrow" data-motion="eyebrow">The useful mental model</div><h2 data-motion="title">不要只问：<br>“它知道什么？”</h2><p class="lead" data-motion="copy">更好的问题是：<br><span class="accent">“我能和它一起，<br>把什么做得更好？”</span></p></div>
+      <div class="closing-art" data-motion="visual" aria-hidden="true"><div class="closing-orb"></div><div class="closing-note">GPT 的价值不只在答案本身。<br><br>它在于降低从意图到行动之间的摩擦。</div></div>
+    </div>
+    <div class="sources"><span>基础事实：GPT 是基于 Transformer 的生成式模型，训练目标包含预测下一个 token。</span><span><a href="https://cdn.openai.com/papers/gpt-4.pdf" target="_blank" rel="noreferrer">OpenAI / GPT-4 Technical Report</a> · <a href="https://cdn.openai.com/GPT_2_August_Report.pdf" target="_blank" rel="noreferrer">OpenAI / GPT-2 Report</a></span></div>
+    <div class="footer"><span>GPT / A FIELD GUIDE</span><strong>08 / 08</strong></div>
+  </section>
+</main>
+
+<div class="controls" aria-label="幻灯片控制">
+  <button class="control-btn" id="prev" aria-label="上一页">←</button>
+  <div class="counter" id="counter">01 / 08</div>
+  <button class="control-btn" id="next" aria-label="下一页">→</button>
+</div>
+<div class="deck-hint">← → / SPACE 翻页 · T 打开调节</div>
+<div class="mobile-nav" aria-label="移动端翻页控制">
+  <button id="mobile-prev" aria-label="上一页">‹</button>
+  <button id="mobile-next" aria-label="下一页">›</button>
+</div>
+<button class="fullscreen-btn" id="fullscreen-toggle" aria-label="进入全屏">FULLSCREEN</button>
+<button class="tweak-btn" id="tweak-toggle">TWEAKS</button>
+<div class="tweaks" id="tweaks" aria-label="演示调节">
+  <h4>LIVE TWEAKS</h4>
+  <label>Quiet motion <input type="checkbox" id="quiet-toggle"></label>
+  <label>Show controls <input type="checkbox" id="controls-toggle" checked></label>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15/dist/gsap.min.js"></script>
+<script>
+  (() => {
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    const counter = document.getElementById('counter');
+    const controls = document.querySelector('.controls');
+    const tweakPanel = document.getElementById('tweaks');
+    const fullscreenToggle = document.getElementById('fullscreen-toggle');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let current = Number.parseInt(localStorage.getItem('gptDeckSlide') || '0', 10);
+    let motionTimeline = null;
+    if (!Number.isFinite(current)) current = 0;
+
+    function scaleStage() {
+      const stage = document.querySelector('.stage');
+      const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+      const width = 1920 * scale;
+      const height = 1080 * scale;
+      stage.style.setProperty('--deck-scale', String(scale));
+      stage.style.left = `${Math.max(0, (window.innerWidth - width) / 2)}px`;
+      stage.style.top = `${Math.max(0, (window.innerHeight - height) / 2)}px`;
+    }
+    function prepareTextMotion(slide) {
+      const selectors = [
+        '[data-motion="title"]',
+        '[data-motion="copy"]',
+        '.flow-step h3', '.flow-step p',
+        '.cap h3', '.cap p',
+        '.editor-line .txt',
+        '.uncertainty-box h3', '.bullet-copy',
+        '.collab-card h3', '.collab-card p',
+        '.formula p', '.closing-note'
+      ];
+      slide.querySelectorAll(selectors.join(',')).forEach(element => {
+        if (element.dataset.textMotionReady) return;
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+        const textNodes = [];
+        let node;
+        while ((node = walker.nextNode())) textNodes.push(node);
+        textNodes.forEach(textNode => {
+          const text = textNode.nodeValue;
+          if (!text.trim() || textNode.parentElement.closest('.text-fragment')) return;
+          const chunks = text.match(/[A-Za-z0-9]+(?:[’'/-][A-Za-z0-9]+)*|[^A-Za-z0-9\s]{1,7}|\s+/g) || [];
+          const fragment = document.createDocumentFragment();
+          chunks.forEach(chunk => {
+            const span = document.createElement('span');
+            span.className = 'text-fragment';
+            span.dataset.textMotion = 'fragment';
+            span.textContent = chunk;
+            fragment.appendChild(span);
+          });
+          textNode.replaceWith(fragment);
+        });
+        element.dataset.textMotionReady = 'true';
+      });
+    }
+    function resetSlideElements(slide) {
+      prepareTextMotion(slide);
+      const setIfPresent = (selector, vars) => {
+        const targets = slide.querySelectorAll(selector);
+        if (targets.length) gsap.set(targets, vars);
+      };
+      const elements = slide.querySelectorAll('[data-motion]');
+      if (reduceMotion.matches || !window.gsap) {
+        if (window.gsap && elements.length) gsap.set(elements, { clearProps: 'all' });
+        if (window.gsap && slide.querySelectorAll('[data-text-motion="fragment"]').length) gsap.set(slide.querySelectorAll('[data-text-motion="fragment"]'), { clearProps: 'all' });
+        return;
+      }
+      setIfPresent('[data-motion="eyebrow"]', { autoAlpha: 0, y: 18 });
+      setIfPresent('[data-motion="title"]', { autoAlpha: 0, y: 28 });
+      setIfPresent('[data-motion="copy"]', { autoAlpha: 0, y: 20 });
+      setIfPresent('[data-motion="visual"]', { autoAlpha: 0, y: 24, scale: .985 });
+      setIfPresent('[data-motion="quote"]', { autoAlpha: 0, x: -22 });
+      setIfPresent('[data-text-motion="fragment"]', { autoAlpha: 0, y: 16, rotateX: -20 });
+    }
+    function addAmbientMotion(slide) {
+      if (reduceMotion.matches || !window.gsap) return;
+      const ambient = gsap.timeline({ repeat: -1, yoyo: true, defaults: { ease: 'sine.inOut' } });
+      if (slide.querySelector('.orbit')) ambient.to(slide.querySelectorAll('.orbit'), { rotation: '+=8', duration: 8, stagger: .45 }, 0);
+      if (slide.querySelector('.core')) ambient.to(slide.querySelector('.core'), { scale: 1.045, duration: 2.8 }, 0);
+      if (slide.querySelector('.flow-step')) ambient.to(slide.querySelectorAll('.flow-step'), { y: (i) => i % 2 ? -10 : 10, duration: 2.5, stagger: .12 }, 0);
+      if (slide.querySelector('.cap')) ambient.to(slide.querySelectorAll('.cap'), { y: -8, duration: 2.4, stagger: .16 }, 0);
+      if (slide.querySelector('.editor')) ambient.to(slide.querySelector('.editor'), { y: -8, duration: 2.8 }, 0);
+      if (slide.querySelector('.uncertainty-box')) ambient.to(slide.querySelectorAll('.uncertainty-box'), { y: -8, duration: 2.6, stagger: .16 }, 0);
+      if (slide.querySelector('.collab-card')) ambient.to(slide.querySelectorAll('.collab-card'), { y: -8, duration: 2.6, stagger: .16 }, 0);
+      if (slide.querySelector('.closing-orb')) ambient.to(slide.querySelector('.closing-orb'), { rotation: 5, scale: 1.03, duration: 3.2 }, 0);
+      motionTimeline.add(ambient, 0.65);
+    }
+    function animateSlide(slide) {
+      if (motionTimeline) motionTimeline.kill();
+      resetSlideElements(slide);
+      if (reduceMotion.matches || !window.gsap) return;
+      motionTimeline = gsap.timeline({ defaults: { ease: 'power3.out' } });
+      const addReveal = (selector, vars, position) => {
+        const targets = slide.querySelectorAll(selector);
+        if (targets.length) motionTimeline.to(targets, vars, position);
+      };
+      addReveal('[data-motion="eyebrow"]', { autoAlpha: 1, y: 0, duration: .42 });
+      addReveal('[data-motion="title"]', { autoAlpha: 1, y: 0, duration: .62 }, '-=.22');
+      addReveal('[data-motion="copy"]', { autoAlpha: 1, y: 0, duration: .52, stagger: .07 }, '-=.3');
+      addReveal('[data-motion="visual"]', { autoAlpha: 1, y: 0, scale: 1, duration: .78, stagger: .08 }, '-=.42');
+      addReveal('[data-motion="quote"]', { autoAlpha: 1, x: 0, duration: .48, stagger: .12 }, '-=.34');
+      const textFragments = slide.querySelectorAll('[data-text-motion="fragment"]');
+      if (textFragments.length) {
+        motionTimeline.to(textFragments, { autoAlpha: 1, y: 0, rotateX: 0, duration: .36, stagger: .018, ease: 'back.out(1.4)' }, '-=.46');
+      }
+      addAmbientMotion(slide);
+    }
+    function showSlide(index) {
+      if (motionTimeline) motionTimeline.kill();
+      current = Math.max(0, Math.min(index, slides.length - 1));
+      slides.forEach((slide, i) => slide.classList.toggle('active', i === current));
+      counter.textContent = `${String(current + 1).padStart(2, '0')} / ${String(slides.length).padStart(2, '0')}`;
+      localStorage.setItem('gptDeckSlide', String(current));
+      animateSlide(slides[current]);
+    }
+    function next() { showSlide(current + 1); }
+    function previous() { showSlide(current - 1); }
+    async function toggleFullscreen() {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+    }
+    function syncFullscreenLabel() {
+      const active = Boolean(document.fullscreenElement);
+      fullscreenToggle.textContent = active ? 'EXIT FULLSCREEN' : 'FULLSCREEN';
+      fullscreenToggle.setAttribute('aria-label', active ? '退出全屏' : '进入全屏');
+      scaleStage();
+    }
+    document.getElementById('next').addEventListener('click', next);
+    document.getElementById('prev').addEventListener('click', previous);
+    document.getElementById('mobile-prev').addEventListener('click', previous);
+    document.getElementById('mobile-next').addEventListener('click', next);
+    fullscreenToggle.addEventListener('click', toggleFullscreen);
+    document.addEventListener('fullscreenchange', syncFullscreenLabel);
+    document.addEventListener('keydown', event => {
+      if (event.key === 'ArrowRight' || event.key === ' ') { event.preventDefault(); next(); }
+      if (event.key === 'ArrowLeft') { event.preventDefault(); previous(); }
+      if (event.key.toLowerCase() === 't') tweakPanel.classList.toggle('open');
+    });
+    document.querySelector('.stage').addEventListener('click', event => {
+      if (event.target.closest('a, button')) return;
+      next();
+    });
+    document.getElementById('tweak-toggle').addEventListener('click', () => tweakPanel.classList.toggle('open'));
+    document.getElementById('quiet-toggle').addEventListener('change', event => document.body.classList.toggle('quiet', event.target.checked));
+    document.getElementById('controls-toggle').addEventListener('change', event => { controls.style.display = event.target.checked ? 'flex' : 'none'; });
+    reduceMotion.addEventListener('change', () => animateSlide(slides[current]));
+    window.addEventListener('resize', scaleStage);
+    syncFullscreenLabel();
+    showSlide(current);
+  })();
+</script>
+</body>
+</html>
