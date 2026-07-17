@@ -12,6 +12,8 @@
   },
   "devDependencies": {
     "@sparticuz/chromium": "^126.0.0",
+    "dotenv": "^16.4.0",
+    "localtunnel": "^2.0.2",
     "playwright": "^1.45.0",
     "serve": "^14.2.0"
   }

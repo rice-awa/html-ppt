@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
 import screenshots from './scripts/screenshots.js';
@@ -11,6 +12,14 @@ const escapeHtml = (str) =>
   str.replace(/[&<>"']/g, (c) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[c]));
+
+const replaceSinglePlaceholder = (template, placeholder, value) => {
+  const count = template.split(placeholder).length - 1;
+  if (count !== 1) {
+    throw new Error(`模板占位符 ${placeholder} 应出现 1 次，实际出现 ${count} 次`);
+  }
+  return template.replace(placeholder, () => value);
+};
 
 // 清理并创建 public 目录
 if (fs.existsSync(publicDir)) {
@@ -128,9 +137,11 @@ if (presentations.length > 0) {
   listHtml = `      <div class="empty-state">暂无演示文稿，将 HTML 文件放入 <code>slides/</code> 目录后重新构建。</div>`;
 }
 
-const indexHtml = indexTemplate
-  .replaceAll('{{CARDS}}', listHtml)
-  .replaceAll('{{COUNT}}', String(presentations.length));
+const indexHtml = replaceSinglePlaceholder(
+  replaceSinglePlaceholder(indexTemplate, '{{COUNT}}', String(presentations.length)),
+  '{{CARDS}}',
+  listHtml
+);
 
 fs.writeFileSync(path.join(publicDir, 'index.html'), indexHtml);
 console.log(`\n✓ 生成首页索引，包含 ${presentations.length} 个演示文稿`);
