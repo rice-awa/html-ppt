@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Agent Harness · 把模型变成会做事的系统</title>
+<meta name="description" content="面向初学者的 Agent Harness 科普演示：Agent = Model + Harness。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --deck-width: 1920px;
+  --deck-height: 1080px;
+  --paper: #F2EBDD;
+  --ink: #111111;
+  --orange: #FF5A36;
+  --blue: #3157E1;
+  --lime: #B8D84A;
+  --white: #FFFFFF;
+  --muted: color-mix(in srgb, var(--ink) 58%, var(--paper));
+  --grid: color-mix(in srgb, var(--ink) 10%, transparent);
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+  --font-display: "Space Grotesk", "Noto Sans SC", sans-serif;
+  --font-zh: "Noto Sans SC", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; }
+body { background: #111; color: var(--ink); font-family: var(--font-zh); }
+.viewport { position: fixed; inset: 0; overflow: hidden; }
+.deck {
+  position: absolute; left: 0; top: 0;
+  width: var(--deck-width); height: var(--deck-height);
+  transform-origin: top left; background: var(--paper); overflow: hidden;
+  box-shadow: 0 48px 120px rgba(0,0,0,.38);
+}
+.deck::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 48px 48px; opacity: .72;
+}
+.slide { position: absolute; inset: 0; display: none; padding: 88px 96px 92px; overflow: hidden; }
+.slide.active { display: flex; flex-direction: column; }
+.slide-chrome { position: absolute; left: 96px; right: 96px; display: flex; justify-content: space-between; font: 14px var(--font-mono); letter-spacing: .08em; color: var(--muted); }
+.slide-chrome.top { top: 34px; }
+.slide-chrome.bottom { bottom: 34px; }
+.slide-chrome .brand { display: flex; align-items: center; gap: 10px; }
+.slide-chrome .brand::before { content: ""; width: 10px; height: 10px; border-radius: 2px; background: var(--orange); }
+.progress { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.progress > i { display: block; height: 100%; width: 0; background: var(--orange); transition: width .45s var(--ease-out); }
+.nav, .fullscreen { position: fixed; z-index: 100; border: 1px solid #333; color: #fff; background: #191919; cursor: pointer; font-family: var(--font-mono); }
+.nav { top: 50%; width: 48px; height: 48px; border-radius: 50%; transform: translateY(-50%); font-size: 22px; }
+.nav:hover, .nav:focus-visible, .fullscreen:hover, .fullscreen:focus-visible { background: var(--orange); border-color: var(--orange); outline: 3px solid rgba(255,90,54,.28); outline-offset: 3px; }
+.nav.prev { left: 24px; }
+.nav.next { right: 24px; }
+.fullscreen { top: 18px; right: 18px; height: 42px; padding: 0 16px; border-radius: 999px; font-size: 12px; }
+.page-info { position: fixed; z-index: 100; left: 50%; bottom: 16px; transform: translateX(-50%); color: #999; font: 12px var(--font-mono); letter-spacing: .1em; }
+</style>
+</head>
+<body>
+<div class="viewport">
+<main class="deck" id="deck" aria-label="Agent Harness 科普演示">
+  <section class="slide active" data-screen-label="01 Cover">
+    <div class="slide-chrome top"><span class="brand">AGENT HARNESS / TEARDOWN LAB</span><span>01 / 18</span></div>
+    <div class="slide-chrome bottom"><span>按 → 或空格翻页</span><span>HARNESS = AGENT − MODEL</span></div>
+  </section>
+  <section class="slide" data-screen-label="02 Same Model">
+    <div class="slide-chrome top"><span class="brand">AGENT HARNESS / TEARDOWN LAB</span><span>02 / 18</span></div>
+    <div class="slide-chrome bottom"><span>按 → 或空格翻页</span><span>HARNESS = AGENT − MODEL</span></div>
+  </section>
+  <section class="slide" data-screen-label="03 Equation">
+    <div class="slide-chrome top"><span class="brand">AGENT HARNESS / TEARDOWN LAB</span><span>03 / 18</span></div>
+    <div class="slide-chrome bottom"><span>按 → 或空格翻页</span><span>HARNESS = AGENT − MODEL</span></div>
+  </section>
+  <section class="slide" data-screen-label="04 Definition">
+    <div class="slide-chrome top"><span class="brand">AGENT HARNESS / TEARDOWN LAB</span><span>04 / 18</span></div>
+    <div class="slide-chrome bottom"><span>按 → 或空格翻页</span><span>HARNESS = AGENT − MODEL</span></div>
+  </section>
+  <section class="slide" data-screen-label="05 Next Token">
+    <div class="slide-chrome top"><span class="brand">AGENT HARNESS / TEARDOWN LAB</span><span>05 / 18</span></div>
+    <div class="slide-chrome bottom"><span>按 → 或空格翻页</span><span>HARNESS = AGENT − MODEL</span></div>
+  </section>
+  <section class="slide" data-screen-label="06 Failure Trail">
+    <div class="slide-chrome top"><span class="brand">AGENT HARNESS / TEARDOWN LAB</span><span>06 / 18</span></div>
+    <div class="slide-chrome bottom"><span>按 → 或空格翻页</span><span>HARNESS = AGENT − MODEL</span></div>
+  </section>
+  <section class="slide" data-screen-label="07 Anatomy">
+    <div class="slide-chrome top"><span class="brand">AGENT HARNESS / TEARDOWN LAB</span><span>07 / 18</span></div>
+    <div class="slide-chrome bottom"><span>按 → 或空格翻页</span><span>HARNESS = AGENT − MODEL</span></div>
+  </section>
+  <section class="slide" data-screen-label="08 Agent Loop">
+    <div class="slide-chrome top"><span class="brand">AGENT HARNESS / TEARDOWN LAB</span><span>08 / 18</span></div>
+    <div class="slide-chrome bottom"><span>按 → 或空格翻页</span><span>HARNESS = AGENT − MODEL</span></div>
+  </section>
+  <section class="slide" data-screen-label="09 Context">
+    <div class="slide-chrome top"><span class="brand">AGENT HARNESS / TEARDOWN LAB</span><span>09 / 18</span></div>
+    <div class="slide-chrome bottom"><span>按 → 或空格翻页</span><span>HARNESS = AGENT − MODEL</span></div>
+  </section>
+  <section class="slide" data-screen-label="10 Tools and MCP">
+    <div class="slide-chrome top"><span class="brand">AGENT HARNESS / TEARDOWN LAB</span><span>10 / 18</span></div>
+    <div class="slide-chrome bottom"><span>按 → 或空格翻页</span><span>HARNESS = AGENT − MODEL</span></div>
+  </section>
+  <section class="slide" data-screen-label="11 Guardrails and HITL">
+    <div class="slide-chrome top"><span class="brand">AGENT HARNESS / TEARDOWN LAB</span><span>11 / 18</span></div>
+    <div class="slide-chrome bottom"><span>按 → 或空格翻页</span><span>HARNESS = AGENT − MODEL</span></div>
+  </section>
+  <section class="slide" data-screen-label="12 Persistence">
+    <div class="slide-chrome top"><span class="brand">AGENT HARNESS / TEARDOWN LAB</span><span>12 / 18</span></div>
+    <div class="slide-chrome bottom"><span>按 → 或空格翻页</span><span>HARNESS = AGENT − MODEL</span></div>
+  </section>
+  <section class="slide" data-screen-label="13 Orchestration">
+    <div class="slide-chrome top"><span class="brand">AGENT HARNESS / TEARDOWN LAB</span><span>13 / 18</span></div>
+    <div class="slide-chrome bottom"><span>按 → 或空格翻页</span><span>HARNESS = AGENT − MODEL</span></div>
+  </section>
+  <section class="slide" data-screen-label="14 Observability">
+    <div class="slide-chrome top"><span class="brand">AGENT HARNESS / TEARDOWN LAB</span><span>14 / 18</span></div>
+    <div class="slide-chrome bottom"><span>按 → 或空格翻页</span><span>HARNESS = AGENT − MODEL</span></div>
+  </section>
+  <section class="slide" data-screen-label="15 Grok Evidence">
+    <div class="slide-chrome top"><span class="brand">AGENT HARNESS / TEARDOWN LAB</span><span>15 / 18</span></div>
+    <div class="slide-chrome bottom"><span>按 → 或空格翻页</span><span>HARNESS = AGENT − MODEL</span></div>
+  </section>
+  <section class="slide" data-screen-label="16 Inner and Outer Harness">
+    <div class="slide-chrome top"><span class="brand">AGENT HARNESS / TEARDOWN LAB</span><span>16 / 18</span></div>
+    <div class="slide-chrome bottom"><span>按 → 或空格翻页</span><span>HARNESS = AGENT − MODEL</span></div>
+  </section>
+  <section class="slide" data-screen-label="17 Complexity Ladder">
+    <div class="slide-chrome top"><span class="brand">AGENT HARNESS / TEARDOWN LAB</span><span>17 / 18</span></div>
+    <div class="slide-chrome bottom"><span>按 → 或空格翻页</span><span>HARNESS = AGENT − MODEL</span></div>
+  </section>
+  <section class="slide" data-screen-label="18 Recap">
+    <div class="slide-chrome top"><span class="brand">AGENT HARNESS / TEARDOWN LAB</span><span>18 / 18</span></div>
+    <div class="slide-chrome bottom"><span>按 → 或空格翻页</span><span>HARNESS = AGENT − MODEL</span></div>
+  </section>
+  <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
+</main>
+</div>
+<button class="nav prev" id="prevBtn" type="button" aria-label="上一页">‹</button>
+<button class="nav next" id="nextBtn" type="button" aria-label="下一页">›</button>
+<button class="fullscreen" id="fullscreenBtn" type="button" aria-label="切换全屏">FULLSCREEN</button>
+<div class="page-info" id="pageInfo" aria-live="polite">01 / 18</div>
+<script>
+(() => {
+  const STORAGE_KEY = 'agent-harness-presentation-page';
+  const deck = document.getElementById('deck');
+  const slides = [...document.querySelectorAll('.slide')];
+  const progressBar = document.getElementById('progressBar');
+  const pageInfo = document.getElementById('pageInfo');
+  const fullscreenBtn = document.getElementById('fullscreenBtn');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+
+  function readStoredIndex() {
+    try {
+      const stored = Number(localStorage.getItem(STORAGE_KEY));
+      return Number.isInteger(stored) && stored >= 0 && stored < slides.length ? stored : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  let current = readStoredIndex();
+
+  function fitDeck() {
+    const viewport = window.visualViewport;
+    const width = viewport ? viewport.width : document.documentElement.clientWidth;
+    const height = viewport ? viewport.height : document.documentElement.clientHeight;
+    const scale = Math.min(width / 1920, height / 1080);
+    const x = (width - 1920 * scale) / 2;
+    const y = (height - 1080 * scale) / 2;
+    deck.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+  }
+
+  function setSlideState(index, emitEvents) {
+    const nextIndex = Math.max(0, Math.min(index, slides.length - 1));
+    const previousIndex = current;
+    const previousSlide = slides[previousIndex];
+    const nextSlide = slides[nextIndex];
+
+    if (emitEvents && previousSlide) {
+      window.dispatchEvent(new CustomEvent('harness:slideleave', { detail: { index: previousIndex, slide: previousSlide } }));
+      window.HarnessMotion?.leave?.(previousSlide);
+      window.HarnessThree?.deactivate?.(previousSlide);
+    }
+
+    current = nextIndex;
+
+    slides.forEach((slide, slideIndex) => {
+      const isActive = slideIndex === current;
+      slide.classList.toggle('active', isActive);
+      slide.setAttribute('aria-hidden', String(!isActive));
+    });
+
+    progressBar.style.width = `${((current + 1) / slides.length) * 100}%`;
+    pageInfo.textContent = `${String(current + 1).padStart(2, '0')} / ${String(slides.length).padStart(2, '0')}`;
+
+    try {
+      localStorage.setItem(STORAGE_KEY, String(current));
+    } catch {
+      // Storage is best-effort only.
+    }
+
+    if (emitEvents && nextSlide) {
+      window.HarnessMotion?.enter?.(nextSlide);
+      window.HarnessThree?.activate?.(nextSlide);
+      window.dispatchEvent(new CustomEvent('harness:slideenter', { detail: { index: current, slide: nextSlide } }));
+    }
+  }
+
+  function show(index) {
+    setSlideState(index, true);
+    return current;
+  }
+
+  const next = () => show(current + 1);
+  const previous = () => show(current - 1);
+
+  prevBtn.addEventListener('click', previous);
+  nextBtn.addEventListener('click', next);
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'ArrowRight' || event.key === ' ') {
+      event.preventDefault();
+      next();
+    }
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      previous();
+    }
+  });
+
+  fullscreenBtn.addEventListener('click', async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    } catch (error) {
+      console.warn('Fullscreen request failed:', error);
+    }
+  });
+
+  document.addEventListener('fullscreenchange', () => {
+    fullscreenBtn.textContent = document.fullscreenElement ? 'EXIT FULLSCREEN' : 'FULLSCREEN';
+    fitDeck();
+  });
+
+  window.addEventListener('resize', fitDeck);
+  window.visualViewport?.addEventListener('resize', fitDeck);
+  window.addEventListener('beforeunload', () => window.HarnessThree?.dispose?.());
+
+  window.HarnessDeck = {
+    show,
+    next,
+    previous,
+    current: () => current,
+    total: () => slides.length,
+  };
+
+  setSlideState(current, false);
+  fitDeck();
+})();
+</script>
+</body>
+</html>
