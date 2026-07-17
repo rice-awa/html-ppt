@@ -5,513 +5,549 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HTML 演示文稿集合 | Project Showcase</title>
 <meta name="description" content="网络协议与技术主题的 HTML 演示文稿合集">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
-<!-- 引入动画与时差滚动库 -->
-<script src="https://unpkg.com/@studio-freight/lenis@1.0.39/dist/lenis.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.net.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.1/vanilla-tilt.min.js"></script>
+<meta name="theme-color" content="#050609">
+<link rel="icon" href="data:,">
+<script>document.documentElement.classList.add('js');</script>
 
 <style>
   :root {
-    --bg: #030305;
-    --bg-elevated: rgba(15, 15, 20, 0.4);
-    --border: rgba(255, 255, 255, 0.08);
-    --border-hover: rgba(61, 107, 255, 0.4);
-    --text-primary: #ffffff;
-    --text-secondary: #a0a0ab;
-    --text-tertiary: #5e5e69;
-    --accent: #3d6bff;
-    --accent-glow: rgba(61, 107, 255, 0.6);
-    --radius-lg: 20px;
-    --radius-sm: 8px;
-    --font-display: 'Space Grotesk', sans-serif;
-    --font-body: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
+    color-scheme: dark;
+    --bg: #050609;
+    --surface: rgba(15, 18, 24, 0.74);
+    --surface-mobile: rgba(14, 17, 23, 0.96);
+    --surface-strong: #151920;
+    --border: rgba(255, 255, 255, 0.1);
+    --border-hover: rgba(88, 132, 255, 0.62);
+    --text-primary: #f7f8fb;
+    --text-secondary: #afb4c0;
+    --text-tertiary: #737987;
+    --accent: #5884ff;
+    --signal: #55d3a3;
+    --radius: 8px;
+    --font-display: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   }
 
-  * { margin: 0; padding: 0; box-sizing: border-box; cursor: none; /* 使用自定义鼠标 */ }
+  * {
+    box-sizing: border-box;
+  }
 
-  html { color-scheme: dark; scroll-behavior: initial; } /* Lenis 需要 initial */
+  html {
+    background: var(--bg);
+  }
 
   body {
-    background: transparent;
-    color: var(--text-primary);
-    font-family: var(--font-body);
-    line-height: 1.6;
     min-height: 100vh;
+    margin: 0;
     overflow-x: hidden;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: var(--font-display);
+    line-height: 1.6;
+    text-rendering: optimizeLegibility;
   }
 
-  /* 自定义光标 */
-  .cursor-dot, .cursor-outline {
-    position: fixed;
-    top: 0; left: 0;
-    transform: translate(-50%, -50%);
-    border-radius: 50%;
-    z-index: 9999;
-    pointer-events: none;
-  }
-  .cursor-dot {
-    width: 8px; height: 8px;
-    background-color: var(--accent);
-  }
-  .cursor-outline {
-    width: 40px; height: 40px;
-    border: 1px solid rgba(61, 107, 255, 0.5);
-    transition: width 0.2s, height 0.2s, background-color 0.2s;
-  }
-
-  /* 动态背景容器（CSS 兜底：当 Vanta 初始化失败或未启用 WebGL 时仍保持暗色与网格质感） */
   #vanta-bg {
     position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
+    inset: 0;
     z-index: 0;
-    background:
-      radial-gradient(ellipse 80% 50% at 50% 0%, rgba(61, 107, 255, 0.12), transparent 70%),
-      linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-      var(--bg);
-    background-size: 100% 100%, 64px 64px, 64px 64px, 100% 100%;
     pointer-events: none;
+    background:
+      linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+      var(--bg);
+    background-size: 64px 64px, 64px 64px, auto;
   }
 
-  /* 顶部渐变遮罩 */
-  .bg-gradient {
-    position: fixed;
-    top: -20%; left: 50%;
-    width: 1000px; height: 800px;
-    transform: translateX(-50%);
-    background: radial-gradient(circle, rgba(61, 107, 255, 0.15) 0%, transparent 70%);
+  .page,
+  footer {
+    position: relative;
     z-index: 1;
-    pointer-events: none;
   }
 
   .page {
-    position: relative;
-    z-index: 2;
-    max-width: 1300px;
+    width: min(100%, 1280px);
     margin: 0 auto;
-    padding: clamp(100px, 15vw, 180px) 32px 100px;
+    padding: 96px 24px 72px;
   }
 
   .hero-section {
-    text-align: center;
-    margin-bottom: 100px;
     display: flex;
     flex-direction: column;
     align-items: center;
+    margin-bottom: 64px;
+    text-align: center;
   }
 
   .kicker {
     display: inline-flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 7px 12px;
+    border: 1px solid rgba(85, 211, 163, 0.28);
+    border-radius: 999px;
+    background: rgba(9, 24, 20, 0.78);
+    color: var(--signal);
     font-family: var(--font-mono);
-    font-size: 13px;
-    letter-spacing: 0.2em;
+    font-size: 12px;
+    line-height: 1.2;
     text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 24px;
-    padding: 8px 16px;
-    border-radius: 100px;
-    border: 1px solid rgba(61, 107, 255, 0.2);
-    background: rgba(61, 107, 255, 0.05);
-    backdrop-filter: blur(10px);
   }
 
   .kicker::before {
-    content: ""; width: 8px; height: 8px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
-    background: var(--accent);
-    box-shadow: 0 0 16px var(--accent-glow);
-    animation: pulse 2s infinite;
+    background: currentColor;
+    box-shadow: 0 0 14px rgba(85, 211, 163, 0.58);
+    content: "";
   }
 
   h1 {
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: clamp(3rem, 8vw, 5.5rem);
-    letter-spacing: -0.03em;
-    line-height: 1.05;
-    margin-bottom: 30px;
-    background: linear-gradient(180deg, #fff 0%, #a0a0ab 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    max-width: 920px;
+    margin: 0 0 22px;
+    font-size: 64px;
+    font-weight: 760;
+    line-height: 1.08;
+    letter-spacing: 0;
   }
 
   .subtitle {
-    font-size: clamp(1.1rem, 2vw, 1.25rem);
+    max-width: 620px;
+    margin: 0 0 32px;
     color: var(--text-secondary);
-    max-width: 60ch;
-    margin: 0 auto 50px;
-    font-weight: 300;
+    font-size: 18px;
+    line-height: 1.75;
   }
 
   .meta-row {
     display: flex;
+    flex-wrap: wrap;
     justify-content: center;
-    gap: 16px;
+    gap: 10px;
   }
 
   .meta-chip {
-    font-family: var(--font-mono);
-    font-size: 13px;
-    color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.03);
+    padding: 8px 12px;
     border: 1px solid var(--border);
     border-radius: 999px;
-    padding: 10px 20px;
-    backdrop-filter: blur(10px);
-    transition: all 0.3s ease;
-  }
-  
-  .meta-chip:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: var(--text-secondary);
+    background: rgba(16, 19, 25, 0.84);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.2;
   }
 
-  /* 瀑布流/网格布局 */
   .deck-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: 32px;
-    perspective: 1000px; /* 为3D效果准备 */
+    grid-template-columns: 1fr;
+    gap: 20px;
   }
 
   .deck-card {
-    display: block;
-    background: var(--bg-elevated);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    text-decoration: none;
-    color: inherit;
-    position: relative;
+    min-width: 0;
     overflow: hidden;
-    transform-style: preserve-3d;
-    transition: border-color 0.4s ease, box-shadow 0.4s ease;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.18);
+    color: inherit;
+    text-decoration: none;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
   }
 
-  /* 毛玻璃反光特效 */
-  .deck-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: -100%;
-    width: 50%; height: 100%;
-    background: linear-gradient(to right, transparent, rgba(255,255,255,0.05), transparent);
-    transform: skewX(-20deg);
-    transition: 0.5s;
-    z-index: 2;
-    pointer-events: none;
+  .js .deck-card {
+    opacity: 0;
+    transform: translateY(18px);
   }
 
-  .deck-card:hover::before {
-    left: 150%;
+  .js .deck-card.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+    transition:
+      opacity 560ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 560ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 220ms ease,
+      box-shadow 220ms ease;
   }
 
-  .deck-card:hover {
-    border-color: var(--border-hover);
-    box-shadow: 0 20px 50px -20px rgba(61, 107, 255, 0.3), 
-                inset 0 0 0 1px rgba(61, 107, 255, 0.2);
+  .js .deck-card:not(.is-visible) {
+    will-change: opacity, transform;
   }
 
   .deck-thumb {
-    aspect-ratio: 16 / 9;
-    overflow: hidden;
-    background: #000;
-    border-bottom: 1px solid var(--border);
     position: relative;
-    transform: translateZ(30px); /* 3D 景深 */
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+    border-bottom: 1px solid var(--border);
+    background: #090b10;
   }
 
   .deck-thumb img {
-    width: 100%; height: 100%;
+    display: block;
+    width: 100%;
+    height: 100%;
     object-fit: cover;
-    transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1), filter 0.7s;
-    filter: grayscale(40%) brightness(0.8);
-  }
-
-  .deck-card:hover .deck-thumb img {
-    transform: scale(1.08);
-    filter: grayscale(0%) brightness(1);
+    object-position: top;
+    transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .deck-thumb-placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #121218, #0a0a0f);
-    height: 100%;
+    display: grid;
+    height: auto;
+    place-items: center;
+    background: var(--surface-strong);
   }
 
   .deck-thumb-placeholder span {
-    font-family: var(--font-display);
-    font-size: 3rem;
+    color: rgba(255, 255, 255, 0.12);
+    font-size: 48px;
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.05);
   }
 
   .deck-body {
-    padding: 24px 28px 12px;
-    transform: translateZ(20px);
-  }
-
-  .deck-index {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--text-tertiary);
-    margin-bottom: 12px;
-    display: block;
+    padding: 20px 22px 12px;
   }
 
   .deck-title {
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: 1.3rem;
-    margin-bottom: 10px;
-    line-height: 1.3;
-    transition: color 0.3s;
-  }
-  
-  .deck-card:hover .deck-title {
-    color: var(--accent);
+    margin: 0 0 8px;
+    overflow-wrap: anywhere;
+    font-size: 20px;
+    font-weight: 680;
+    line-height: 1.35;
+    letter-spacing: 0;
+    transition: color 180ms ease;
   }
 
   .deck-desc {
-    font-size: 0.95rem;
-    color: var(--text-secondary);
     display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    margin: 0;
     overflow: hidden;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.65;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
   .deck-meta {
     display: flex;
+    min-width: 0;
     align-items: center;
-    padding: 0 28px 28px;
-    transform: translateZ(20px);
+    gap: 10px;
+    padding: 0 22px 20px;
+  }
+
+  .deck-index,
+  .deck-route {
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+
+  .deck-index {
+    flex: 0 0 auto;
+    color: var(--signal);
   }
 
   .deck-route {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--text-secondary);
-    background: rgba(255, 255, 255, 0.05);
+    min-width: 0;
+    overflow: hidden;
+    padding: 5px 8px;
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 6px 12px;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .deck-arrow {
+    display: grid;
+    flex: 0 0 30px;
+    width: 30px;
+    height: 30px;
     margin-left: auto;
-    width: 32px; height: 32px;
+    place-items: center;
+    border: 1px solid var(--border);
     border-radius: 50%;
-    background: rgba(255,255,255,0.05);
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.3s ease;
-    border: 1px solid transparent;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    font-size: 16px;
+    line-height: 1;
+    transition:
+      background-color 180ms ease,
+      border-color 180ms ease,
+      color 180ms ease;
   }
 
-  .deck-arrow svg {
-    width: 14px; height: 14px;
-    fill: none; stroke: currentColor; stroke-width: 2;
-    transition: transform 0.3s ease;
-  }
-
-  .deck-card:hover .deck-arrow {
-    background: var(--accent);
-    color: #fff;
-    border-color: var(--accent-glow);
-    box-shadow: 0 0 15px var(--accent-glow);
-  }
-
-  .deck-card:hover .deck-arrow svg {
-    transform: translateX(2px) translateY(-2px);
+  .deck-card:focus-visible {
+    outline: 3px solid rgba(88, 132, 255, 0.8);
+    outline-offset: 4px;
   }
 
   footer {
-    position: relative;
-    z-index: 2;
-    max-width: 1300px;
-    margin: 100px auto 0;
-    padding: 40px 32px;
-    text-align: center;
+    width: min(calc(100% - 48px), 1232px);
+    margin: 0 auto;
+    padding: 28px 0 36px;
     border-top: 1px solid var(--border);
+    text-align: center;
   }
 
   footer p {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    letter-spacing: 0.1em;
+    margin: 0;
     color: var(--text-tertiary);
-    text-transform: uppercase;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.6;
   }
 
-  @keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(61, 107, 255, 0.4); }
-    70% { box-shadow: 0 0 0 10px rgba(61, 107, 255, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(61, 107, 255, 0); }
+  .empty-state {
+    padding: 48px 24px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-mobile);
+    color: var(--text-secondary);
+    text-align: center;
   }
 
-  /* 进入动画初始状态 */
-  .gsap-reveal { opacity: 0; visibility: hidden; }
+  .empty-state code {
+    color: var(--signal);
+    font-family: var(--font-mono);
+  }
 
-  @media (max-width: 768px) {
-    .deck-list { grid-template-columns: 1fr; }
-    * { cursor: auto !important; }
-    .cursor-dot, .cursor-outline { display: none; }
+  @media (hover: hover) and (pointer: fine) {
+    .deck-card.is-visible:hover {
+      transform: translateY(-4px);
+      border-color: var(--border-hover);
+      box-shadow: 0 22px 54px rgba(0, 0, 0, 0.28);
+    }
+
+    .deck-card:hover .deck-thumb img {
+      transform: scale(1.025);
+    }
+
+    .deck-card:hover .deck-title {
+      color: #86a5ff;
+    }
+
+    .deck-card:hover .deck-arrow {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+  }
+
+  @media (min-width: 1100px) {
+    .deck-list {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 680px) and (max-width: 1099px) {
+    .page {
+      padding-top: 80px;
+    }
+
+    h1 {
+      font-size: 48px;
+    }
+
+    .deck-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 679px) {
+    .page {
+      padding: 56px 16px 52px;
+    }
+
+    .hero-section {
+      align-items: flex-start;
+      margin-bottom: 42px;
+      text-align: left;
+    }
+
+    .kicker {
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      max-width: 10em;
+      margin-bottom: 18px;
+      font-size: 38px;
+      line-height: 1.12;
+    }
+
+    .subtitle {
+      margin-bottom: 24px;
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    .meta-row {
+      justify-content: flex-start;
+    }
+
+    .deck-list {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .deck-body {
+      padding: 18px 18px 10px;
+    }
+
+    .deck-title {
+      font-size: 19px;
+    }
+
+    .deck-meta {
+      padding: 0 18px 18px;
+    }
+
+    footer {
+      width: calc(100% - 32px);
+    }
+  }
+
+  @media (hover: none), (pointer: coarse), (max-width: 679px) {
+    .deck-card {
+      background: var(--surface-mobile);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+
+    .deck-thumb img {
+      transition: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+
+    .js .deck-card,
+    .js .deck-card.is-visible {
+      opacity: 1;
+      transform: none;
+      will-change: auto;
+    }
   }
 </style>
 </head>
 <body>
+  <div id="vanta-bg" aria-hidden="true"></div>
 
-  <!-- 自定义鼠标 -->
-  <div class="cursor-dot"></div>
-  <div class="cursor-outline"></div>
-
-  <!-- Vanta 动态背景 -->
-  <div id="vanta-bg"></div>
-  <div class="bg-gradient"></div>
-
-  <div class="page">
-    <div class="hero-section">
-      <span class="kicker gsap-reveal">Presentation Library</span>
-      <h1 class="gsap-reveal">HTML 演示文稿集合</h1>
-      <p class="subtitle gsap-reveal">深入探索网络协议与前沿技术。呈现为交互式幻灯片，提供沉浸式的阅读与演示体验。</p>
-      <div class="meta-row gsap-reveal">
+  <main class="page">
+    <header class="hero-section">
+      <span class="kicker">Presentation Library</span>
+      <h1>HTML 演示文稿集合</h1>
+      <p class="subtitle">深入探索网络协议与前沿技术。呈现为交互式幻灯片，提供沉浸式的阅读与演示体验。</p>
+      <div class="meta-row">
         <span class="meta-chip">{{COUNT}} 篇精选文稿</span>
         <span class="meta-chip">Powered by build.js</span>
       </div>
-    </div>
-    
-    <div class="deck-list">
-      <!-- 卡片占位符由外部构建脚本替换 -->
-      <!-- 示例卡片结构，确保构建脚本生成的 HTML 能匹配上述 CSS 结构 -->
-      {{CARDS}}
-    </div>
-  </div>
+    </header>
 
-  <footer class="gsap-reveal">
+    <section class="deck-list" aria-label="演示文稿列表">
+      {{CARDS}}
+    </section>
+  </main>
+
+  <footer>
     <p>HTMLPPT · Crafted for Excellence · Powered by Vercel</p>
   </footer>
 
   <script>
-    // 1. 初始化 Lenis 平滑滚动
-    const lenis = new Lenis({
-      duration: 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      smoothWheel: true
+    const cards = [...document.querySelectorAll('.deck-card')];
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (reduceMotion || !('IntersectionObserver' in window)) {
+      cards.forEach((card) => card.classList.add('is-visible'));
+    } else {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const card = entry.target;
+          card.classList.add('is-visible');
+          observer.unobserve(card);
+        });
+      }, {
+        rootMargin: '0px 0px -6% 0px',
+        threshold: 0.08
+      });
+
+      cards.forEach((card) => observer.observe(card));
+    }
+
+    let vantaEffect = null;
+    const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js';
+    const VANTA_URL = 'https://cdn.jsdelivr.net/npm/vanta@0.5.24/dist/vanta.net.min.js';
+
+    const loadScript = (src) => new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = src;
+      script.async = true;
+      script.addEventListener('load', resolve, { once: true });
+      script.addEventListener('error', reject, { once: true });
+      document.head.append(script);
     });
 
-    function raf(time) {
-      lenis.raf(time);
-      requestAnimationFrame(raf);
-    }
-    requestAnimationFrame(raf);
+    const initVanta = () => {
+      if (vantaEffect || !window.VANTA?.NET) return;
 
-    // 2. 初始化 Vanta.js 科技感连线背景 (与“网络协议”主题呼应)
-    window.addEventListener('DOMContentLoaded', () => {
-      VANTA.NET({
-        el: "#vanta-bg",
+      vantaEffect = window.VANTA.NET({
+        el: '#vanta-bg',
         mouseControls: true,
         touchControls: true,
         gyroControls: false,
-        minHeight: 200.00,
-        minWidth: 200.00,
-        scale: 1.00,
-        scaleMobile: 1.00,
-        color: 0x3d6bff,      // 科技蓝
-        backgroundColor: 0x030305, // 深邃黑
-        points: 12.00,
-        maxDistance: 22.00,
-        spacing: 18.00,
+        minHeight: 200,
+        minWidth: 200,
+        scale: 1,
+        scaleMobile: 1,
+        color: 0x3d6bff,
+        backgroundColor: 0x050609,
+        points: 12,
+        maxDistance: 22,
+        spacing: 18,
         showDots: true
       });
-    });
+    };
 
-    // 3. 自定义光标跟随
-    const cursorDot = document.querySelector('.cursor-dot');
-    const cursorOutline = document.querySelector('.cursor-outline');
-    
-    window.addEventListener('mousemove', (e) => {
-      const posX = e.clientX;
-      const posY = e.clientY;
-      
-      cursorDot.style.left = `${posX}px`;
-      cursorDot.style.top = `${posY}px`;
-      
-      // 让外圈有一点延迟跟随
-      cursorOutline.animate({
-        left: `${posX}px`,
-        top: `${posY}px`
-      }, { duration: 500, fill: "forwards" });
-    });
+    const loadVanta = async () => {
+      if (!window.THREE) await loadScript(THREE_URL);
+      if (!window.VANTA?.NET) await loadScript(VANTA_URL);
+      initVanta();
+    };
 
-    // 为可交互元素添加光标悬停状态
-    const interactives = document.querySelectorAll('a, button, .deck-card, .meta-chip');
-    interactives.forEach(el => {
-      el.addEventListener('mouseenter', () => {
-        cursorOutline.style.width = '60px';
-        cursorOutline.style.height = '60px';
-        cursorOutline.style.backgroundColor = 'rgba(61, 107, 255, 0.1)';
-      });
-      el.addEventListener('mouseleave', () => {
-        cursorOutline.style.width = '40px';
-        cursorOutline.style.height = '40px';
-        cursorOutline.style.backgroundColor = 'transparent';
-      });
-    });
-
-    // 4. 初始化 Vanilla-tilt (3D 卡片悬停效果)
-    // 延迟执行以确保构建脚本已注入卡片
-    setTimeout(() => {
-      VanillaTilt.init(document.querySelectorAll(".deck-card"), {
-        max: 8,
-        speed: 400,
-        glare: true,
-        "max-glare": 0.15,
-        perspective: 1000
-      });
-      
-      // 5. GSAP 滚动入场动画
-      gsap.registerPlugin(ScrollTrigger);
-      
-      // 头部元素依次浮现
-      gsap.fromTo(".gsap-reveal", 
-        { y: 30, opacity: 0, autoAlpha: 0 },
-        { y: 0, opacity: 1, autoAlpha: 1, duration: 1, stagger: 0.15, ease: "power3.out", delay: 0.2 }
-      );
-
-      // 卡片滚动浮现
-      const cards = gsap.utils.toArray('.deck-card');
-      if(cards.length > 0) {
-        cards.forEach((card, i) => {
-          gsap.fromTo(card,
-            { y: 50, opacity: 0 },
-            {
-              scrollTrigger: {
-                trigger: card,
-                start: "top 85%",
-                toggleActions: "play none none reverse"
-              },
-              y: 0,
-              opacity: 1,
-              duration: 0.8,
-              ease: "power3.out",
-              delay: (i % 3) * 0.1 // 简单的级联延迟
-            }
-          );
-        });
+    const scheduleVanta = () => {
+      const start = () => loadVanta().catch(() => {});
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(start, { timeout: 1200 });
+      } else {
+        window.setTimeout(start, 1);
       }
-    }, 100);
+    };
+
+    window.addEventListener('load', scheduleVanta, { once: true });
+    window.addEventListener('pageshow', (event) => {
+      if (event.persisted) scheduleVanta();
+    });
+    window.addEventListener('pagehide', () => {
+      if (!vantaEffect) return;
+      vantaEffect.destroy();
+      vantaEffect = null;
+    });
   </script>
 </body>
 </html>

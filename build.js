@@ -143,8 +143,10 @@ if (presentations.length > 0) {
     const descBlock = p.description
       ? `          <p class="deck-desc">${escapeHtml(p.description)}</p>`
       : '';
+    const loading = i < 3 ? 'eager' : 'lazy';
+    const fetchPriority = i === 0 ? 'high' : (i < 3 ? 'auto' : 'low');
     const thumbBlock = p.thumbnailUrl
-      ? `        <div class="deck-thumb"><img src="${escapeHtml(p.thumbnailUrl)}" alt=""></div>`
+      ? `        <div class="deck-thumb"><img src="${escapeHtml(p.thumbnailUrl)}" alt="" width="1280" height="720" loading="${loading}" fetchpriority="${fetchPriority}" decoding="async"></div>`
       : `        <div class="deck-thumb deck-thumb-placeholder"><span>${escapeHtml(p.title.slice(0, 1) || '?')}</span></div>`;
     return cardTemplate
       .replaceAll('{{INDEX}}', String(i))
