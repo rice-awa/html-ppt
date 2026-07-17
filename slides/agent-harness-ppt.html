@@ -1,0 +1,757 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="data:," />
+<title>Harness / AI Agent 工程的周边基础设施</title>
+<meta name="description" content="AI Agent 工程中的 Harness —— 调研报告：核心定义、七层架构全景、主流框架对比与设计原则" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #08090A;
+    --surface-1: #0E0F12;
+    --surface-2: #16171C;
+    --surface-3: #1E1F25;
+    --surface-4: #26272E;
+    --line: rgba(255,255,255,.07);
+    --line-strong: rgba(255,255,255,.14);
+    --text-1: #F7F8F8;
+    --text-2: #9CA3AF;
+    --text-3: #6B7280;
+    --accent: #5E6AD2;
+    --accent-soft: rgba(94,106,210,.12);
+    --accent-line: rgba(94,106,210,.4);
+    --mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+    --sans: "Inter Tight", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+    --sans-body: "Inter", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; }
+  body { background: #000; color: var(--text-1); font-family: var(--sans-body); user-select: none; position: relative; }
+  button { font: inherit; }
+  .stage {
+    width: 1920px; height: 1080px; position: fixed; left: 0; top: 0;
+    transform-origin: top left; transform: scale(var(--deck-scale, 1)); background: var(--bg);
+  }
+  .slide { position: absolute; inset: 0; display: none; overflow: hidden; padding: 80px 88px 76px; }
+  .slide.active { display: block; animation: enter .5s cubic-bezier(.22,1,.36,1) both; }
+  @keyframes enter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @media (prefers-reduced-motion: reduce) {
+    .slide.active { animation: none; }
+    *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+  }
+  .grid-lines {
+    position: absolute; inset: 0; pointer-events: none; opacity: .035;
+    background-image: linear-gradient(var(--text-1) 1px, transparent 1px), linear-gradient(90deg, var(--text-1) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: linear-gradient(to bottom, black, transparent 85%);
+  }
+  h1, h2, h3, p { margin: 0; text-wrap: pretty; }
+  h1 { font-family: var(--sans); font-weight: 700; font-size: 132px; line-height: .92; letter-spacing: -.03em; }
+  h2 { font-family: var(--sans); font-weight: 600; font-size: 58px; line-height: 1.08; letter-spacing: -.025em; }
+  h3 { font-family: var(--sans); font-weight: 600; font-size: 27px; line-height: 1.2; letter-spacing: -.01em; }
+  .lead { font-size: 25px; line-height: 1.55; color: var(--text-2); font-weight: 400; }
+  .body { font-size: 19px; line-height: 1.6; color: var(--text-2); }
+  .muted { color: var(--text-3); }
+  .accent-text { color: var(--accent); }
+  .micro { font-family: var(--mono); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+
+  .eyebrow { font-family: var(--mono); font-size: 16px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 22px; display: inline-flex; align-items: center; gap: 11px; }
+  .eyebrow::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulseDot 2.4s ease-in-out infinite; }
+  @keyframes pulseDot { 0%, 100% { opacity: .45; transform: scale(.8); } 50% { opacity: 1; transform: scale(1); } }
+  .slide-id { position: absolute; right: 88px; top: 80px; font-family: var(--mono); font-size: 14px; color: var(--text-3); letter-spacing: .05em; }
+  .footer {
+    position: absolute; left: 88px; right: 88px; bottom: 38px; display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--mono); font-size: 13px; letter-spacing: .05em; color: var(--text-3);
+  }
+  .footer strong { color: var(--accent); font-weight: 500; }
+
+  .chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line-strong); border-radius: 999px; padding: 9px 18px; font: 14px var(--mono); color: var(--text-2); letter-spacing: .03em; background: var(--surface-2); }
+  .chip.accent { border-color: var(--accent-line); color: var(--accent); background: var(--accent-soft); }
+
+  .kv-table { margin-top: 40px; }
+  .kv-row { display: grid; grid-template-columns: 1fr 40px 1fr; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--line); gap: 20px; }
+  .kv-row:last-child { border-bottom: none; }
+  .kv-row .arrow { color: var(--accent); font: 20px var(--mono); text-align: center; }
+  .kv-row .from { color: var(--text-2); font-size: 18px; line-height: 1.4; }
+  .kv-row .to { color: var(--text-1); font-size: 18px; line-height: 1.4; }
+
+  .evidence-quote { padding: 32px 36px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+  .evidence-quote .micro { margin-bottom: 14px; }
+  .evidence-quote p { font-size: 24px; line-height: 1.5; font-style: italic; color: var(--text-1); }
+
+  /* 01 title */
+  .hero { display: grid; grid-template-columns: 1.05fr .95fr; align-items: center; height: 100%; position: relative; z-index: 1; }
+  .hero-meta { margin-top: 44px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .hero-art { height: 760px; position: relative; display: grid; place-items: center; }
+  .orbit { position: absolute; border: 1px solid var(--line-strong); border-radius: 50%; }
+  .orbit.one { width: 720px; height: 290px; transform: rotate(-18deg); }
+  .orbit.two { width: 600px; height: 600px; transform: rotate(35deg); border-color: var(--line); }
+  .orbit.three { width: 440px; height: 820px; transform: rotate(68deg); border-color: var(--line); }
+  .core { width: 220px; height: 220px; border-radius: 50%; background: var(--surface-3); border: 1px solid var(--accent-line); display: grid; place-items: center; position: relative; z-index: 2; }
+  .core span { font: 20px var(--mono); color: var(--accent); letter-spacing: .05em; }
+  .token { position: absolute; padding: 12px 16px; border: 1px solid var(--line-strong); background: var(--surface-2); font: 14px var(--mono); color: var(--text-2); border-radius: 8px; z-index: 3; }
+  .token.a { top: 90px; left: 30px; }
+  .token.b { top: 220px; right: 0; }
+  .token.c { bottom: 180px; left: 50px; }
+  .token.d { bottom: 70px; right: 50px; }
+
+  /* 02 definition */
+  .analogy { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 20px; align-items: stretch; margin-top: 76px; }
+  .analogy-card { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 30px 28px; }
+  .analogy-card.raised { background: var(--surface-3); }
+  .analogy-card.accent { border-color: var(--accent-line); background: var(--accent-soft); }
+  .analogy-card .micro { margin-bottom: 14px; }
+  .analogy-card h3 { font-size: 26px; margin-bottom: 10px; }
+  .analogy-card p { font-size: 16px; color: var(--text-2); line-height: 1.4; }
+  .analogy-op { display: grid; place-items: center; font: 32px var(--mono); color: var(--text-3); }
+
+  /* 03 equation */
+  .formula-box { margin-top: 50px; display: flex; align-items: baseline; gap: 24px; font-family: var(--mono); font-size: 54px; letter-spacing: -.02em; padding: 36px 40px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface-2); }
+  .formula-box .op { color: var(--text-3); font-size: 34px; }
+  .quote-line { margin-top: 28px; font: 22px/1.5 var(--sans-body); font-style: italic; color: var(--text-2); }
+  .value-row { margin-top: 52px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .value-card { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 28px 26px; }
+  .value-card .num { font: 15px var(--mono); color: var(--accent); margin-bottom: 16px; }
+  .value-card h3 { font-size: 22px; margin-bottom: 10px; }
+  .value-card p { font-size: 16px; color: var(--text-2); line-height: 1.45; }
+
+  /* 04 evidence */
+  .stat-row { margin-top: 56px; display: flex; align-items: center; gap: 56px; }
+  .stat-hero { font-family: var(--mono); font-size: 100px; letter-spacing: -.02em; display: flex; align-items: center; gap: 24px; }
+  .stat-hero .from { color: var(--text-3); }
+  .stat-hero .arrow { color: var(--accent); font-size: 60px; }
+  .stat-hero .to { color: var(--text-1); }
+  .stat-caption { font-size: 18px; line-height: 1.5; color: var(--text-2); max-width: 400px; border-left: 1px solid var(--line); padding-left: 28px; }
+  .evidence-block .evidence-quote { margin-top: 60px; max-width: 940px; }
+
+  /* 06 architecture */
+  .stack { margin-top: 40px; display: flex; flex-direction: column; gap: 6px; }
+  .stack-layer { display: flex; align-items: center; gap: 20px; padding: 13px 24px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+  .stack-layer .n { font: 15px var(--mono); color: var(--text-3); width: 30px; flex: none; }
+  .stack-layer .name { font-size: 18px; font-weight: 600; flex: none; width: 260px; }
+  .stack-layer .desc { font-size: 14px; color: var(--text-2); }
+  .stack-layer.model { background: var(--accent-soft); border-color: var(--accent-line); }
+  .stack-layer.model .n, .stack-layer.model .name { color: var(--accent); }
+
+  /* 07 loop + context */
+  .two-col { display: grid; grid-template-columns: 1.1fr .9fr; gap: 56px; margin-top: 44px; }
+  .loop-steps { display: flex; align-items: stretch; gap: 14px; }
+  .loop-step { flex: 1; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 22px 20px; }
+  .loop-step .micro { color: var(--accent); margin-bottom: 10px; }
+  .loop-step p { font-size: 16px; color: var(--text-2); line-height: 1.4; }
+  .loop-arrow { display: grid; place-items: center; color: var(--text-3); font: 22px var(--mono); }
+  .memory-col .kv-row { grid-template-columns: 1fr 28px 1fr; padding: 13px 0; }
+  .memory-col .from, .memory-col .to { font-size: 15px; }
+
+  /* 08 tools */
+  .flow-3 { margin-top: 40px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .flow-step-card { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 26px 24px; }
+  .flow-step-card .idx { font: 14px var(--mono); color: var(--text-3); margin-bottom: 14px; }
+  .flow-step-card h3 { font-size: 21px; margin-bottom: 10px; }
+  .flow-step-card p { font-size: 15px; color: var(--text-2); line-height: 1.45; }
+  .mcp-diagram { margin-top: 32px; padding: 26px 30px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); display: flex; align-items: center; gap: 16px; flex-wrap: wrap; font: 16px var(--mono); color: var(--text-2); }
+  .mcp-diagram .node { padding: 10px 18px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface-3); color: var(--text-1); }
+  .mcp-diagram .node.accent { border-color: var(--accent-line); color: var(--accent); background: var(--accent-soft); }
+  .mcp-diagram .arrow { color: var(--text-3); }
+
+  /* 09 guardrails */
+  .guard-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 44px; }
+  .guard-box { background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; padding: 30px 32px; }
+  .guard-box.accent { background: var(--accent-soft); border-color: var(--accent-line); }
+  .box-label { display: flex; justify-content: space-between; font: 14px var(--mono); letter-spacing: .06em; color: var(--text-3); padding-bottom: 18px; border-bottom: 1px solid var(--line); text-transform: uppercase; }
+  .guard-box ul { list-style: none; margin: 22px 0 0; padding: 0; display: grid; gap: 16px; }
+  .guard-box li { font-size: 17px; line-height: 1.45; color: var(--text-2); padding-left: 22px; position: relative; }
+  .guard-box li::before { content: "→"; position: absolute; left: 0; color: var(--accent); font: 14px var(--mono); }
+
+  /* 10 orchestration */
+  .chip-row { margin-top: 36px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .two-col-even { margin-top: 32px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .mini-card { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 26px 28px; }
+  .mini-card h3 { font-size: 20px; margin-bottom: 12px; }
+  .mini-card p { font-size: 16px; color: var(--text-2); line-height: 1.5; }
+
+  /* 11 harness turn */
+  .timeline { margin-top: 56px; display: flex; align-items: stretch; gap: 0; }
+  .timeline-node { flex: 1; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 24px 26px; }
+  .timeline-node:last-child { background: var(--accent-soft); border-color: var(--accent-line); }
+  .timeline-node .micro { margin-bottom: 10px; }
+  .timeline-node h3 { font-size: 20px; margin-bottom: 8px; }
+  .timeline-node p { font-size: 14px; color: var(--text-2); }
+  .timeline-connector { width: 44px; display: grid; place-items: center; color: var(--text-3); font: 20px var(--mono); }
+
+  /* 13 principles */
+  .principles-layout { display: grid; grid-template-columns: 1.3fr .7fr; gap: 40px; margin-top: 40px; }
+  .principle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; }
+  .principle-item { display: flex; gap: 14px; padding: 15px 0; border-bottom: 1px solid var(--line); }
+  .principle-item .num { font: 14px var(--mono); color: var(--accent); flex: none; width: 24px; }
+  .principle-item p { font-size: 16px; color: var(--text-1); line-height: 1.4; }
+  .framework-mini { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 24px 26px; }
+  .fw-row { padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .fw-row:last-child { border-bottom: none; }
+  .fw-row .name { font: 14px var(--mono); color: var(--accent); margin-bottom: 6px; }
+  .fw-row .desc { font-size: 14px; color: var(--text-2); line-height: 1.4; }
+
+  /* 14 closing */
+  .sources { position: absolute; left: 88px; right: 88px; bottom: 96px; border-top: 1px solid var(--line); padding-top: 16px; display: flex; justify-content: space-between; gap: 40px; color: var(--text-3); font: 13px/1.5 var(--mono); }
+  .sources a { color: var(--text-2); text-decoration: none; }
+  .sources a:hover { color: var(--accent); }
+
+  /* controls */
+  .controls { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 12px; }
+  .control-btn, .tweak-btn { border: 1px solid rgba(255,255,255,.16); color: rgba(255,255,255,.86); background: rgba(8,9,10,.8); backdrop-filter: blur(12px); cursor: pointer; transition: background .2s, color .2s, transform .2s; border-radius: 8px; }
+  .control-btn { width: 46px; height: 38px; font-size: 20px; }
+  .control-btn:hover, .tweak-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); transform: translateY(-2px); }
+  .counter { color: rgba(255,255,255,.68); font: 14px var(--mono); min-width: 78px; text-align: center; }
+  .tweak-btn { position: fixed; right: 24px; bottom: 24px; padding: 10px 14px; font: 13px var(--mono); z-index: 60; }
+  .fullscreen-btn {
+    position: fixed; right: 124px; bottom: 24px; padding: 10px 14px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,.16); color: rgba(255,255,255,.86); background: rgba(8,9,10,.8);
+    backdrop-filter: blur(12px); cursor: pointer; z-index: 60; font: 13px var(--mono);
+  }
+  .fullscreen-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .mobile-nav { display: none; }
+  @media (max-width: 700px), (pointer: coarse) {
+    .controls { bottom: 14px; }
+    .deck-hint { display: none; }
+    .fullscreen-btn { right: 14px; bottom: 70px; min-height: 44px; }
+    .tweak-btn { right: 14px; bottom: 14px; min-height: 44px; }
+    .mobile-nav { position: fixed; inset: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; pointer-events: none; z-index: 55; }
+    .mobile-nav button { pointer-events: auto; width: 48px; height: 72px; border: 1px solid rgba(255,255,255,.2); border-radius: 12px; color: white; background: rgba(8,9,10,.76); backdrop-filter: blur(10px); font-size: 44px; line-height: 1; cursor: pointer; }
+    .mobile-nav button:active { background: var(--accent); transform: scale(.94); }
+  }
+  @media (display-mode: fullscreen) { .fullscreen-btn { display: none; } }
+  .tweaks { position: fixed; right: 24px; bottom: 72px; width: 230px; background: rgba(8,9,10,.94); border: 1px solid rgba(255,255,255,.14); border-radius: 12px; backdrop-filter: blur(16px); padding: 18px; z-index: 60; color: white; display: none; }
+  .tweaks.open { display: block; }
+  .tweaks h4 { margin: 0 0 16px; font: 14px var(--mono); color: var(--accent); }
+  .tweaks label { display: flex; justify-content: space-between; gap: 12px; font: 13px var(--mono); color: #c6cede; margin-top: 14px; }
+  .tweaks input { accent-color: var(--accent); }
+  .deck-hint { position: fixed; left: 24px; bottom: 28px; z-index: 50; color: rgba(255,255,255,.38); font: 12px var(--mono); }
+  .quiet .orbit { opacity: .4; }
+
+  /* ── depth + progress + watermark ─────────────────────────── */
+  .deck-progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 70; background: rgba(255,255,255,.04); }
+  .deck-progress .bar { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), #8f99e8); transition: width .55s cubic-bezier(.22,1,.36,1); }
+  .deck-watermark { position: absolute; right: 60px; bottom: 40px; z-index: 0; pointer-events: none; font-family: var(--sans); font-weight: 700; font-size: 320px; line-height: .8; letter-spacing: -.05em; color: rgba(255,255,255,.022); user-select: none; }
+  .aura { position: absolute; inset: 0; pointer-events: none; z-index: 0; opacity: .5;
+    background: radial-gradient(760px 520px at 82% 18%, rgba(94,106,210,.10), transparent 62%); }
+
+  /* ── hover life (Linear-restrained) ───────────────────────── */
+  .analogy-card, .value-card, .flow-step-card, .mini-card, .timeline-node, .loop-step,
+  .guard-box, .stack-layer, .fw-row, .chip {
+    transition: transform .28s cubic-bezier(.22,1,.36,1), border-color .28s ease, background-color .28s ease;
+  }
+  .analogy-card:hover, .value-card:hover, .flow-step-card:hover, .mini-card:hover,
+  .timeline-node:hover, .loop-step:hover, .guard-box:hover { transform: translateY(-4px); border-color: var(--line-strong); }
+  .stack-layer:hover { transform: translateX(8px); border-color: var(--accent-line); }
+  .stack-layer:hover .name { color: var(--text-1); }
+  .chip:hover { border-color: var(--accent-line); color: var(--text-1); transform: translateY(-2px); }
+  .fw-row:hover .desc { color: var(--text-1); }
+
+  /* ── equation shimmer ─────────────────────────────────────── */
+  .formula-box .accent-text {
+    background: linear-gradient(90deg, var(--accent) 0%, #b3bbf4 48%, var(--accent) 100%);
+    background-size: 220% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: shimmer 4.5s linear infinite;
+  }
+  @keyframes shimmer { to { background-position: -220% 0; } }
+  .quiet .formula-box .accent-text, .quiet .eyebrow::before { animation: none; }
+
+  /* ── stat bar (04) ────────────────────────────────────────── */
+  .stat-row { align-items: flex-start; }
+  .stat-main { display: flex; flex-direction: column; gap: 30px; }
+  .stat-bar { width: 560px; display: flex; flex-direction: column; gap: 12px; }
+  .bar-track { position: relative; height: 16px; border-radius: 999px; background: var(--surface-3); border: 1px solid var(--line); overflow: hidden; }
+  .bar-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 6.7%; border-radius: 999px; background: linear-gradient(90deg, var(--surface-4), var(--accent)); }
+  .bar-base { position: absolute; top: -4px; bottom: -4px; left: 6.7%; width: 1px; background: var(--line-strong); }
+  .bar-legend { display: flex; justify-content: space-between; font: 12px var(--mono); color: var(--text-3); letter-spacing: .05em; }
+
+  /* reveal baseline: keep layout stable, only opacity/transform driven by JS */
+  .no-js [data-motion] { opacity: 1 !important; }
+</style>
+</head>
+<body>
+<div class="deck-progress" aria-hidden="true"><div class="bar" id="deck-bar"></div></div>
+<main class="stage" aria-label="Harness：AI Agent 工程调研演示文稿">
+  <div class="aura" aria-hidden="true"></div>
+  <div class="deck-watermark" id="deck-watermark" aria-hidden="true">01</div>
+
+  <section class="slide active" data-screen-label="01 封面">
+    <div class="grid-lines"></div>
+    <div class="slide-id">01 / OVERVIEW</div>
+    <div class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow" data-motion="eyebrow">AI AGENT 工程调研 · 2026.07.17</div>
+        <h1 data-motion="title">Harness</h1>
+        <p class="lead" data-motion="copy" style="margin-top:28px;max-width:640px;">把裸模型变成生产可用 Agent 的那整套周边基础设施——循环控制、上下文工程、工具接入、护栏、人类在环、编排与评测。</p>
+        <div class="hero-meta" data-motion="copy">
+          <span class="chip accent">Agent = Model + Harness</span>
+          <span class="chip">七层架构全景</span>
+          <span class="chip">精简版 · 14 页</span>
+        </div>
+      </div>
+      <div class="hero-art" data-motion="visual" aria-hidden="true">
+        <div class="orbit one"></div><div class="orbit two"></div><div class="orbit three"></div>
+        <div class="core"><span>MODEL</span></div>
+        <div class="token a">循环控制</div>
+        <div class="token b">记忆 / 上下文</div>
+        <div class="token c">工具 · MCP</div>
+        <div class="token d">护栏 · 评测</div>
+      </div>
+    </div>
+    <div class="footer"><span>调研工具：WebSearch · Context7 MCP · Firecrawl</span><strong>01 / 14</strong></div>
+  </section>
+
+  <section class="slide" data-screen-label="02 定义">
+    <div class="grid-lines"></div>
+    <div class="slide-id">02 / DEFINITION</div>
+    <div class="eyebrow" data-motion="eyebrow">定义</div>
+    <h2 data-motion="title">模型只会"接着说"，<br>Harness 让它"会干活"。</h2>
+    <p class="lead" data-motion="copy" style="max-width:900px;margin-top:24px;">模型本身只会 predict the next token。一旦要稳定调用工具、保持记忆、可被观测、可与人协作，就需要在模型外面套上一层 harness：循环控制、上下文编排、安全护栏、状态持久、评测反馈。</p>
+    <div class="analogy" data-motion="visual" data-stagger>
+      <div class="analogy-card"><div class="micro">ENGINE</div><h3>模型</h3><p>只负责"接着说"——预测下一个 token</p></div>
+      <div class="analogy-op">+</div>
+      <div class="analogy-card raised"><div class="micro">CHASSIS · WHEEL · BRAKE</div><h3>Harness</h3><p>循环、记忆、工具、护栏、人机协作</p></div>
+      <div class="analogy-op">=</div>
+      <div class="analogy-card accent"><div class="micro">FULL VEHICLE</div><h3>Agent</h3><p>能稳定完成真实任务的系统</p></div>
+    </div>
+    <div class="footer"><span>没有引擎车跑不动，没有 harness 引擎装不到车上</span><strong>02 / 14</strong></div>
+  </section>
+
+  <section class="slide" data-screen-label="03 核心方程">
+    <div class="grid-lines"></div>
+    <div class="slide-id">03 / EQUATION</div>
+    <div class="eyebrow" data-motion="eyebrow">核心观点</div>
+    <h2 data-motion="title">Harness = Agent − Model</h2>
+    <div class="formula-box" data-motion="visual" data-stagger>
+      <span>AGENT</span><span class="op">=</span><span>MODEL</span><span class="op">+</span><span class="accent-text">HARNESS</span>
+    </div>
+    <p class="quote-line" data-motion="copy">"If you're not the model, you're the harness."</p>
+    <div class="value-row" data-motion="copy" data-stagger>
+      <div class="value-card"><div class="num">01</div><h3>智能与落地分离</h3><p>模型负责推理与决策，harness 负责把智能落地成真实动作。</p></div>
+      <div class="value-card"><div class="num">02</div><h3>修复方向反转</h3><p>Agent 不靠谱时，真正的修复几乎总在 harness 里，而非换更大的模型。</p></div>
+      <div class="value-card"><div class="num">03</div><h3>解释模型趋同</h3><p>原始能力逐渐收敛，harness 越来越成为决定系统表现的那一半。</p></div>
+    </div>
+    <div class="footer"><span>把模型这一项减掉，剩下的差距就是 harness 工程的战场</span><strong>03 / 14</strong></div>
+  </section>
+
+  <section class="slide" data-screen-label="04 实证数据">
+    <div class="grid-lines"></div>
+    <div class="slide-id">04 / EVIDENCE</div>
+    <div class="evidence-block">
+      <div class="eyebrow" data-motion="eyebrow">证据</div>
+      <h2 data-motion="title">一个把这句话砸实的数据点</h2>
+      <div class="stat-row">
+        <div class="stat-main">
+          <div class="stat-hero" data-motion="visual" data-stagger>
+            <span class="from" data-count-to="6.7" data-count-dec="1" data-count-suffix="%">6.7%</span>
+            <span class="arrow">→</span>
+            <span class="to" data-count-to="68.3" data-count-dec="1" data-count-suffix="%">68.3%</span>
+          </div>
+          <div class="stat-bar" data-motion="visual">
+            <div class="bar-track"><div class="bar-fill" id="stat-fill"></div><div class="bar-base"></div></div>
+            <div class="bar-legend"><span>6.7% · baseline</span><span>68.3% · 改 edit-tool 输出格式后</span></div>
+          </div>
+        </div>
+        <div class="stat-caption" data-motion="copy">Grok Code Fast 1 · SWE-bench<br>仅仅改了 edit-tool 的输出格式，模型权重一个字节没动。</div>
+      </div>
+      <div class="evidence-quote" data-motion="copy">
+        <div class="micro">OPENAI CODEX 团队复盘</div>
+        <p>"早期进展比预期慢，不是因为 Codex 不行，而是因为环境（environment）描述得不够充分。"</p>
+      </div>
+    </div>
+    <div class="footer"><span>纯 harness 改动，带来了十倍级的能力释放</span><strong>04 / 14</strong></div>
+  </section>
+
+  <section class="slide" data-screen-label="05 为什么需要">
+    <div class="grid-lines"></div>
+    <div class="slide-id">05 / MOTIVATION</div>
+    <div class="eyebrow" data-motion="eyebrow">动机</div>
+    <h2 data-motion="title">裸模型的局限，逐条对应 Harness 的方案</h2>
+    <div class="kv-table" data-motion="visual" data-stagger>
+      <div class="kv-row"><span class="from">单次一问一答，没有多步循环</span><span class="arrow">→</span><span class="to">Agent Loop（思考-行动-观察）</span></div>
+      <div class="kv-row"><span class="from">记不住上一次干了什么</span><span class="arrow">→</span><span class="to">记忆系统（短期/长期/情景/语义）</span></div>
+      <div class="kv-row"><span class="from">不能操作真实世界</span><span class="arrow">→</span><span class="to">工具调用 + MCP 接入外部系统</span></div>
+      <div class="kv-row"><span class="from">输出格式不可控</span><span class="arrow">→</span><span class="to">结构化输出 / 类型约束</span></div>
+      <div class="kv-row"><span class="from">幻觉、越狱、泄露</span><span class="arrow">→</span><span class="to">护栏（guardrails）</span></div>
+      <div class="kv-row"><span class="from">跑一半挂了就没了</span><span class="arrow">→</span><span class="to">持久化执行 + 人类审批（HITL）</span></div>
+    </div>
+    <p class="body" data-motion="copy" style="margin-top:24px;">Anthropic 的共识：能用简单链路解决的事，别上来就用 agent。</p>
+    <div class="footer"><span>能用简单链路解决的事，别上来就用 agent</span><strong>05 / 14</strong></div>
+  </section>
+
+  <section class="slide" data-screen-label="06 架构全景">
+    <div class="grid-lines"></div>
+    <div class="slide-id">06 / ARCHITECTURE</div>
+    <div class="eyebrow" data-motion="eyebrow">架构全景</div>
+    <h2 data-motion="title">从模型向外看，Harness 的七层</h2>
+    <div class="stack" data-motion="visual" data-stagger>
+      <div class="stack-layer"><span class="n">⑦</span><span class="name">评测与可观测</span><span class="desc">LLM-as-Judge · 追踪 · 监控 · 成本</span></div>
+      <div class="stack-layer"><span class="n">⑥</span><span class="name">编排层</span><span class="desc">单 Agent / 多 Agent / Routing / Handoff</span></div>
+      <div class="stack-layer"><span class="n">⑤</span><span class="name">人类在环 HITL</span><span class="desc">审批 / 中断 / 回退</span></div>
+      <div class="stack-layer"><span class="n">④</span><span class="name">护栏层</span><span class="desc">输入校验 / 工具沙箱 / 输出过滤 / PII</span></div>
+      <div class="stack-layer"><span class="n">③</span><span class="name">工具层</span><span class="desc">Function Calling / MCP / 沙箱执行</span></div>
+      <div class="stack-layer"><span class="n">②</span><span class="name">记忆与上下文工程</span><span class="desc">工作记忆 / 情景记忆 / 语义记忆</span></div>
+      <div class="stack-layer"><span class="n">①</span><span class="name">循环控制层</span><span class="desc">Think → Act → Observe</span></div>
+      <div class="stack-layer model"><span class="n">★</span><span class="name">模型</span><span class="desc">predict the next token</span></div>
+    </div>
+    <div class="footer"><span>由内到外七层，模型是核心，其余都是 harness</span><strong>06 / 14</strong></div>
+  </section>
+
+  <section class="slide" data-screen-label="07 循环与上下文">
+    <div class="grid-lines"></div>
+    <div class="slide-id">07 / LOOP + CONTEXT</div>
+    <div class="eyebrow" data-motion="eyebrow">循环与上下文</div>
+    <h2 data-motion="title">循环控制权在 Harness，不在模型</h2>
+    <div class="two-col">
+      <div class="loop-col">
+        <div class="loop-steps" data-motion="visual" data-stagger>
+          <div class="loop-step"><div class="micro">THINK</div><p>模型读上下文，决定下一步</p></div>
+          <div class="loop-arrow">→</div>
+          <div class="loop-step"><div class="micro">ACT</div><p>输出结构化动作 tool_use</p></div>
+          <div class="loop-arrow">→</div>
+          <div class="loop-step"><div class="micro">OBSERVE</div><p>Harness 执行并把结果塞回上下文</p></div>
+        </div>
+        <p class="body" data-motion="copy" style="margin-top:28px;">模型只输出动作，真正"跑循环"的是 harness。LangGraph 把循环建模成图上的边，天然支持条件跳转、并行、循环。</p>
+      </div>
+      <div class="memory-col">
+        <div class="micro accent-text" data-motion="copy" style="margin-bottom:16px;">CONTEXT ENGINEERING &gt; PROMPT ENGINEERING</div>
+        <div class="mem-rows" data-motion="visual" data-stagger>
+          <div class="kv-row"><span class="from">工作记忆</span><span class="arrow">→</span><span class="to">上下文窗口 + 滑动压缩</span></div>
+          <div class="kv-row"><span class="from">情景记忆</span><span class="arrow">→</span><span class="to">向量数据库 + RAG</span></div>
+          <div class="kv-row"><span class="from">语义记忆</span><span class="arrow">→</span><span class="to">知识图谱 / 嵌入 / 稳定提示</span></div>
+          <div class="kv-row"><span class="from">程序记忆</span><span class="arrow">→</span><span class="to">微调模式 / 提示库 / 工具经验</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>动态上下文选择：只把此刻最相关的信息取出来</span><strong>07 / 14</strong></div>
+  </section>
+
+  <section class="slide" data-screen-label="08 工具与MCP">
+    <div class="grid-lines"></div>
+    <div class="slide-id">08 / TOOLS + MCP</div>
+    <div class="eyebrow" data-motion="eyebrow">工具层 &amp; MCP</div>
+    <h2 data-motion="title">让模型能"动手"</h2>
+    <div class="flow-3" data-motion="visual" data-stagger>
+      <div class="flow-step-card"><div class="idx">01 / 定义</div><h3>工具定义</h3><p>用 JSON Schema / Function Calling 描述工具的名字、参数、用途。</p></div>
+      <div class="flow-step-card"><div class="idx">02 / 执行</div><h3>工具执行</h3><p>Harness 拿到 tool_use 调用真实 API / 数据库 / 沙箱，并把结果 observe 回去。</p></div>
+      <div class="flow-step-card"><div class="idx">03 / 标准化</div><h3>MCP</h3><p>Anthropic 推出的开放标准，把"能不能接外部系统"变成统一协议。</p></div>
+    </div>
+    <div class="mcp-diagram" data-motion="copy" data-stagger>
+      <span class="node">Host（AI 应用）</span><span class="arrow">→</span><span class="node">Client</span><span class="arrow">→</span><span class="node accent">Server</span>
+      <span class="arrow">·</span><span>Tools / Resources / Prompts</span><span class="arrow">·</span><span>JSON-RPC 2.0 通信</span>
+    </div>
+    <div class="footer"><span>一个工具服务写一次，所有支持 MCP 的 agent 都能用</span><strong>08 / 14</strong></div>
+  </section>
+
+  <section class="slide" data-screen-label="09 护栏与HITL">
+    <div class="grid-lines"></div>
+    <div class="slide-id">09 / GUARDRAILS + HITL</div>
+    <div class="eyebrow" data-motion="eyebrow">护栏 &amp; 人类在环</div>
+    <h2 data-motion="title">护栏贯穿全链路，危险动作要审批</h2>
+    <div class="guard-columns" data-motion="visual" data-stagger>
+      <div class="guard-box">
+        <div class="box-label"><span>GUARDRAILS</span><span>01</span></div>
+        <ul>
+          <li>输入护栏 — PII 检测、越狱拦截、意图分类</li>
+          <li>工具调用护栏 — 沙箱执行、参数校验、权限白名单</li>
+          <li>输出护栏 — 格式校验、事实性接地、内容审核</li>
+          <li>上下文护栏 — 防止记忆跨会话泄露敏感数据</li>
+        </ul>
+      </div>
+      <div class="guard-box accent">
+        <div class="box-label"><span>HUMAN-IN-THE-LOOP</span><span>02</span></div>
+        <ul>
+          <li>中断 — 危险动作前暂停，等人确认</li>
+          <li>审批流 — LangGraph interrupt / Pydantic AI 钩子</li>
+          <li>回退与纠正 — 人可以接管、改方向、补充信息</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer"><span>护栏要贯穿整条管道，而不仅是最后一道过滤</span><strong>09 / 14</strong></div>
+  </section>
+
+  <section class="slide" data-screen-label="10 编排与评测">
+    <div class="grid-lines"></div>
+    <div class="slide-id">10 / ORCHESTRATION</div>
+    <div class="eyebrow" data-motion="eyebrow">编排、持久化与评测</div>
+    <h2 data-motion="title">从单 Agent 到可恢复、可评测的系统</h2>
+    <div class="chip-row" data-motion="visual" data-stagger>
+      <span class="chip">Prompt Chaining</span>
+      <span class="chip">Routing</span>
+      <span class="chip">Parallelization</span>
+      <span class="chip">Orchestrator-Workers</span>
+      <span class="chip">Evaluator-Optimizer</span>
+    </div>
+    <div class="two-col-even" data-motion="copy" data-stagger>
+      <div class="mini-card"><h3>持久化执行</h3><p>状态 checkpoint · 可恢复执行 · 时间旅行（time travel）</p></div>
+      <div class="mini-card"><h3>评测与可观测性</h3><p>任务完成率 · 安全合规 · 上下文效率 · 延迟与成本 · LLM-as-Judge</p></div>
+    </div>
+    <div class="footer"><span>没 eval 等于没上线；没 tracing 等于盲飞</span><strong>10 / 14</strong></div>
+  </section>
+
+  <section class="slide" data-screen-label="11 行业拐点">
+    <div class="grid-lines"></div>
+    <div class="slide-id">11 / HARNESS TURN</div>
+    <div class="eyebrow" data-motion="eyebrow">行业拐点</div>
+    <h2 data-motion="title">2024 起，一次"Harness 转向"</h2>
+    <p class="lead" data-motion="copy" style="max-width:960px;margin-top:24px;">制约 agent 可靠性的瓶颈不再是模型质量，而是基础设施质量。Harness 从"一堆孤立模块"升级为一个完整的研究对象——harness 不是被动的执行管道，而是 agent 能力的共同决定者。</p>
+    <div class="timeline" data-motion="visual" data-stagger>
+      <div class="timeline-node"><div class="micro">STEP 01</div><h3>Prompt Engineering</h3><p>问什么</p></div>
+      <div class="timeline-connector">→</div>
+      <div class="timeline-node"><div class="micro">STEP 02 · 2025</div><h3>Context Engineering</h3><p>该让模型看到什么</p></div>
+      <div class="timeline-connector">→</div>
+      <div class="timeline-node"><div class="micro">STEP 03 · 2026</div><h3>Harness Engineering</h3><p>整套周边基础设施</p></div>
+    </div>
+    <div class="footer"><span>测试脚手架 → RL 环境 → LLM agent 框架，三条线在 2023–2024 汇流</span><strong>11 / 14</strong></div>
+  </section>
+
+  <section class="slide" data-screen-label="12 方法论">
+    <div class="grid-lines"></div>
+    <div class="slide-id">12 / METHODOLOGY</div>
+    <div class="eyebrow" data-motion="eyebrow">方法论</div>
+    <h2 data-motion="title">从"想要的行为"反推 Harness 该提供什么</h2>
+    <div class="kv-table" data-motion="visual" data-stagger>
+      <div class="kv-row"><span class="from">持久存储、跨会话保留成果</span><span class="arrow">→</span><span class="to">文件系统抽象 + fs 工具</span></div>
+      <div class="kv-row"><span class="from">不用人预设工具就能自主解题</span><span class="arrow">→</span><span class="to">Bash + 代码执行工具</span></div>
+      <div class="kv-row"><span class="from">能执行并自我验证工作</span><span class="arrow">→</span><span class="to">沙箱 + 预装运行时 / 测试器 / 浏览器</span></div>
+      <div class="kv-row"><span class="from">持续学习、跨会话积累知识</span><span class="arrow">→</span><span class="to">记忆文件标准（AGENTS.md）+ Web/MCP 检索</span></div>
+      <div class="kv-row"><span class="from">对抗 Context Rot（上下文腐烂）</span><span class="arrow">→</span><span class="to">Compaction / 工具输出卸载 / Skills 渐进式披露</span></div>
+    </div>
+    <div class="evidence-quote" data-motion="copy" style="margin-top:28px;padding:24px 28px;">
+      <p style="font-size:19px;">"Harnesses today are largely delivery mechanisms for good context engineering."</p>
+    </div>
+    <div class="footer"><span>不是先列组件，而是"想要什么行为 → 反推 harness 该提供什么"</span><strong>12 / 14</strong></div>
+  </section>
+
+  <section class="slide" data-screen-label="13 设计原则">
+    <div class="grid-lines"></div>
+    <div class="slide-id">13 / PRINCIPLES</div>
+    <div class="eyebrow" data-motion="eyebrow">设计原则</div>
+    <h2 data-motion="title">8 条设计原则</h2>
+    <div class="principles-layout">
+      <div class="principle-grid" data-motion="visual" data-stagger>
+        <div class="principle-item"><span class="num">01</span><p>把"会说话"变成"会干活"</p></div>
+        <div class="principle-item"><span class="num">02</span><p>循环控制权在 harness，不在模型</p></div>
+        <div class="principle-item"><span class="num">03</span><p>Context Engineering &gt; Prompt Engineering</p></div>
+        <div class="principle-item"><span class="num">04</span><p>工具接入标准化（MCP）</p></div>
+        <div class="principle-item"><span class="num">05</span><p>护栏要铺满整条管道</p></div>
+        <div class="principle-item"><span class="num">06</span><p>人要在环，可审批可纠正</p></div>
+        <div class="principle-item"><span class="num">07</span><p>可评测、可观测</p></div>
+        <div class="principle-item"><span class="num">08</span><p>从简开始，按需加复杂度</p></div>
+      </div>
+      <div class="framework-mini" data-motion="visual" data-stagger>
+        <div class="micro" style="margin-bottom:16px;">主流实现速览</div>
+        <div class="fw-row"><div class="name">LangGraph</div><div class="desc">图 = 循环；持久化、HITL、memory</div></div>
+        <div class="fw-row"><div class="name">Pydantic AI</div><div class="desc">类型安全输出、依赖注入、Handoff</div></div>
+        <div class="fw-row"><div class="name">Claude Agent SDK</div><div class="desc">原生工具、子 agent、MCP 集成</div></div>
+        <div class="fw-row"><div class="name">LlamaIndex / CrewAI</div><div class="desc">应用层封装，自带 RAG、多角色</div></div>
+      </div>
+    </div>
+    <div class="footer"><span>Agent 不是银弹，能链式解决的事别上 agent</span><strong>13 / 14</strong></div>
+  </section>
+
+  <section class="slide" data-screen-label="14 结语">
+    <div class="grid-lines"></div>
+    <div class="slide-id">14 / CLOSING</div>
+    <div class="eyebrow" data-motion="eyebrow">结语</div>
+    <h2 data-motion="title">把模型这一项减掉，<br>剩下的差距，就是 harness 工程的全部战场。</h2>
+    <p class="lead" data-motion="copy" style="max-width:860px;margin-top:24px;">当你在评估、调试、或对比两个 agent 时——Harness = Agent − Model 不只是一个定义，它是一个诊断工具。</p>
+    <div class="sources" data-motion="copy">
+      <span>核心来源</span>
+      <span>
+        <a href="https://www.langchain.com/blog/the-anatomy-of-an-agent-harness" target="_blank" rel="noreferrer">LangChain</a> ·
+        <a href="https://martinfowler.com/articles/harness-engineering.html" target="_blank" rel="noreferrer">Martin Fowler</a> ·
+        <a href="https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents" target="_blank" rel="noreferrer">Anthropic</a> ·
+        <a href="https://openai.com/index/harness-engineering/" target="_blank" rel="noreferrer">OpenAI</a> ·
+        <a href="https://www.preprints.org/manuscript/202604.0428" target="_blank" rel="noreferrer">学术综述</a> ·
+        <a href="https://modelcontextprotocol.io/docs/learn/architecture" target="_blank" rel="noreferrer">MCP</a>
+      </span>
+    </div>
+    <div class="footer"><span>调研时间：2026-07-17</span><strong>14 / 14</strong></div>
+  </section>
+
+</main>
+
+<div class="controls" aria-label="幻灯片控制">
+  <button class="control-btn" id="prev" aria-label="上一页">←</button>
+  <div class="counter" id="counter">01 / 14</div>
+  <button class="control-btn" id="next" aria-label="下一页">→</button>
+</div>
+<div class="deck-hint">← → / SPACE 翻页 · T 打开调节</div>
+<div class="mobile-nav" aria-label="移动端翻页控制">
+  <button id="mobile-prev" aria-label="上一页">‹</button>
+  <button id="mobile-next" aria-label="下一页">›</button>
+</div>
+<button class="fullscreen-btn" id="fullscreen-toggle" aria-label="进入全屏">FULLSCREEN</button>
+<button class="tweak-btn" id="tweak-toggle">TWEAKS</button>
+<div class="tweaks" id="tweaks" aria-label="演示调节">
+  <h4>LIVE TWEAKS</h4>
+  <label>Quiet motion <input type="checkbox" id="quiet-toggle"></label>
+  <label>Show controls <input type="checkbox" id="controls-toggle" checked></label>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15/dist/gsap.min.js"></script>
+<script>
+  (() => {
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    const counter = document.getElementById('counter');
+    const controls = document.querySelector('.controls');
+    const tweakPanel = document.getElementById('tweaks');
+    const fullscreenToggle = document.getElementById('fullscreen-toggle');
+    const deckBar = document.getElementById('deck-bar');
+    const watermark = document.getElementById('deck-watermark');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let current = Number.parseInt(localStorage.getItem('harnessDeckSlide') || '0', 10);
+    let motionTimeline = null;
+    let ambientTweens = [];
+    if (!Number.isFinite(current)) current = 0;
+
+    function killAmbient() { ambientTweens.forEach(t => t.kill()); ambientTweens = []; }
+
+    function scaleStage() {
+      const stage = document.querySelector('.stage');
+      const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+      const width = 1920 * scale;
+      const height = 1080 * scale;
+      stage.style.setProperty('--deck-scale', String(scale));
+      stage.style.left = `${Math.max(0, (window.innerWidth - width) / 2)}px`;
+      stage.style.top = `${Math.max(0, (window.innerHeight - height) / 2)}px`;
+    }
+    function motionUnits(slide) {
+      // Ordered reveal targets. A [data-stagger] container reveals its children in sequence;
+      // everything else reveals as a single unit.
+      return Array.from(slide.querySelectorAll('[data-motion]')).map(el => ({
+        el,
+        kind: el.getAttribute('data-motion'),
+        stagger: el.hasAttribute('data-stagger'),
+      }));
+    }
+    function resetSlideElements(slide) {
+      const units = motionUnits(slide);
+      if (reduceMotion.matches || !window.gsap) {
+        if (window.gsap) units.forEach(u => gsap.set(u.stagger ? u.el.children : u.el, { clearProps: 'all' }));
+        return;
+      }
+      units.forEach(u => {
+        const y = u.kind === 'title' ? 26 : u.kind === 'visual' ? 20 : 16;
+        if (u.stagger) {
+          gsap.set(u.el, { autoAlpha: 1 });
+          gsap.set(u.el.children, { autoAlpha: 0, y });
+        } else {
+          gsap.set(u.el, { autoAlpha: 0, y });
+        }
+      });
+      // Reset count-up numbers to their start value.
+      slide.querySelectorAll('[data-count-to]').forEach(el => {
+        const dec = Number(el.dataset.countDec || 0);
+        el.textContent = (0).toFixed(dec) + (el.dataset.countSuffix || '');
+      });
+      const fill = slide.querySelector('#stat-fill');
+      if (fill) gsap.set(fill, { width: '6.7%' });
+    }
+    function addAmbientMotion(slide) {
+      if (reduceMotion.matches || !window.gsap || document.body.classList.contains('quiet')) return;
+      const orbits = slide.querySelectorAll('.orbit');
+      if (orbits.length) {
+        orbits.forEach((o, i) => {
+          ambientTweens.push(gsap.to(o, { rotation: '+=360', duration: 150 + i * 40, ease: 'none', repeat: -1 }));
+        });
+        ambientTweens.push(gsap.to(slide.querySelectorAll('.token'), {
+          y: '+=12', duration: 3.4, ease: 'sine.inOut', yoyo: true, repeat: -1,
+          stagger: { each: .5, from: 'random' },
+        }));
+        const core = slide.querySelector('.core');
+        if (core) ambientTweens.push(gsap.to(core, { scale: 1.035, duration: 3.6, ease: 'sine.inOut', yoyo: true, repeat: -1 }));
+      }
+    }
+    function animateSlide(slide) {
+      if (motionTimeline) motionTimeline.kill();
+      killAmbient();
+      resetSlideElements(slide);
+      if (reduceMotion.matches || !window.gsap) return;
+      motionTimeline = gsap.timeline({ defaults: { ease: 'power3.out' } });
+      const units = motionUnits(slide);
+      units.forEach((u, i) => {
+        const at = i === 0 ? 0 : '-=.34';
+        if (u.stagger) {
+          motionTimeline.to(u.el.children, { autoAlpha: 1, y: 0, duration: .5, stagger: .07 }, at);
+        } else {
+          const dur = u.kind === 'title' ? .55 : .46;
+          motionTimeline.to(u.el, { autoAlpha: 1, y: 0, duration: dur }, at);
+        }
+      });
+      // Count-up numbers.
+      slide.querySelectorAll('[data-count-to]').forEach(el => {
+        const to = Number(el.dataset.countTo);
+        const dec = Number(el.dataset.countDec || 0);
+        const suffix = el.dataset.countSuffix || '';
+        const proxy = { v: 0 };
+        motionTimeline.to(proxy, {
+          v: to, duration: 1.1, ease: 'power2.out',
+          onUpdate: () => { el.textContent = proxy.v.toFixed(dec) + suffix; },
+        }, '-=.2');
+      });
+      // Growing benchmark bar.
+      const fill = slide.querySelector('#stat-fill');
+      if (fill) motionTimeline.to(fill, { width: '68.3%', duration: 1.1, ease: 'power2.out' }, '-=1.1');
+      addAmbientMotion(slide);
+    }
+    function showSlide(index) {
+      if (motionTimeline) motionTimeline.kill();
+      killAmbient();
+      current = Math.max(0, Math.min(index, slides.length - 1));
+      slides.forEach((slide, i) => slide.classList.toggle('active', i === current));
+      const label = `${String(current + 1).padStart(2, '0')} / ${String(slides.length).padStart(2, '0')}`;
+      counter.textContent = label;
+      watermark.textContent = String(current + 1).padStart(2, '0');
+      deckBar.style.width = `${((current + 1) / slides.length) * 100}%`;
+      localStorage.setItem('harnessDeckSlide', String(current));
+      animateSlide(slides[current]);
+    }
+    function next() { showSlide(current + 1); }
+    function previous() { showSlide(current - 1); }
+    async function toggleFullscreen() {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+    }
+    function syncFullscreenLabel() {
+      const active = Boolean(document.fullscreenElement);
+      fullscreenToggle.textContent = active ? 'EXIT FULLSCREEN' : 'FULLSCREEN';
+      fullscreenToggle.setAttribute('aria-label', active ? '退出全屏' : '进入全屏');
+      scaleStage();
+    }
+    document.getElementById('next').addEventListener('click', next);
+    document.getElementById('prev').addEventListener('click', previous);
+    document.getElementById('mobile-prev').addEventListener('click', previous);
+    document.getElementById('mobile-next').addEventListener('click', next);
+    fullscreenToggle.addEventListener('click', toggleFullscreen);
+    document.addEventListener('fullscreenchange', syncFullscreenLabel);
+    document.addEventListener('keydown', event => {
+      if (event.key === 'ArrowRight' || event.key === ' ') { event.preventDefault(); next(); }
+      if (event.key === 'ArrowLeft') { event.preventDefault(); previous(); }
+      if (event.key.toLowerCase() === 't') tweakPanel.classList.toggle('open');
+    });
+    document.querySelector('.stage').addEventListener('click', event => {
+      if (event.target.closest('a, button')) return;
+      next();
+    });
+    document.getElementById('tweak-toggle').addEventListener('click', () => tweakPanel.classList.toggle('open'));
+    document.getElementById('quiet-toggle').addEventListener('change', event => {
+      document.body.classList.toggle('quiet', event.target.checked);
+      if (event.target.checked) killAmbient(); else animateSlide(slides[current]);
+    });
+    document.getElementById('controls-toggle').addEventListener('change', event => { controls.style.display = event.target.checked ? 'flex' : 'none'; });
+    reduceMotion.addEventListener('change', () => animateSlide(slides[current]));
+    window.addEventListener('resize', scaleStage);
+    syncFullscreenLabel();
+    showSlide(current);
+  })();
+</script>
+</body>
+</html>
