@@ -57,6 +57,7 @@ function serveStatic(root) {
           '.css': 'text/css',
           '.js': 'application/javascript',
           '.png': 'image/png',
+          '.webp': 'image/webp',
           '.jpg': 'image/jpeg',
           '.jpeg': 'image/jpeg',
           '.svg': 'image/svg+xml'
@@ -73,17 +74,50 @@ function serveStatic(root) {
   });
 }
 
-async function captureWithPlaywright(page, route, publicDir, cacheDir) {
+// This Playwright build only outputs png/jpeg, so capture png in memory and
+// re-encode to webp using Chromium's native canvas encoder (zero extra deps).
+async function pngToWebp(context, pngBuffer) {
+  const page = await context.newPage();
+  try {
+    const dataUrl = await page.evaluate(async (b64) => {
+      const img = new Image();
+      img.decoding = 'async';
+      const bytes = atob(b64);
+      const buf = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) buf[i] = bytes.charCodeAt(i);
+      img.src = URL.createObjectURL(new Blob([buf], { type: 'image/png' }));
+      await img.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      return canvas.toDataURL('image/webp');
+    }, pngBuffer.toString('base64'));
+    return Buffer.from(dataUrl.split(',')[1], 'base64');
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
+async function captureWithPlaywright(context, route, publicDir, cacheDir) {
   const routeBase = route.replace(/^\//, '') || 'index';
-  const thumbName = sanitizeFilename(routeBase) + '.png';
+  const thumbName = sanitizeFilename(routeBase) + '.webp';
   const thumbPath = path.join(publicDir, THUMBS_DIR, thumbName);
   const cacheThumbPath = path.join(cacheDir, thumbName);
   const assetsThumbPath = path.join(ASSETS_THUMBS_DIR, thumbName);
 
   fs.mkdirSync(path.dirname(thumbPath), { recursive: true });
 
-  await page.goto(`http://localhost:${process.env.HTMLPPT_PORT}${route}`, { waitUntil: 'networkidle' });
-  await page.screenshot({ path: thumbPath, fullPage: false, type: 'png' });
+  const page = await context.newPage();
+  try {
+    await page.goto(`http://localhost:${process.env.HTMLPPT_PORT}${route}`, { waitUntil: 'networkidle' });
+
+    const png = await page.screenshot({ fullPage: false, type: 'png' });
+    const webp = await pngToWebp(context, png);
+    fs.writeFileSync(thumbPath, webp);
+  } finally {
+    await page.close().catch(() => {});
+  }
 
   fs.mkdirSync(path.dirname(cacheThumbPath), { recursive: true });
   fs.copyFileSync(thumbPath, cacheThumbPath);
@@ -104,7 +138,7 @@ async function processBatch(context, port, presentations, publicDir, cacheDir) {
       const sourcePath = p.sourcePath;
       const hash = sha256(sourcePath);
       const hashFile = path.join(cacheDir, `${sanitizeFilename(p.file)}.hash`);
-      const cachedThumbName = `${sanitizeFilename(p.route.replace(/^\//, '') || 'index')}.png`;
+      const cachedThumbName = `${sanitizeFilename(p.route.replace(/^\//, '') || 'index')}.webp`;
       const cachedThumbPath = path.join(cacheDir, cachedThumbName);
       const thumbPath = path.join(publicDir, THUMBS_DIR, cachedThumbName);
       const thumbUrl = `/${THUMBS_DIR}/${cachedThumbName}`;
@@ -116,17 +150,13 @@ async function processBatch(context, port, presentations, publicDir, cacheDir) {
         return { route: p.route, thumbnailUrl: thumbUrl, ok: true, cached: true };
       }
 
-      let page;
       try {
-        page = await context.newPage();
-        const url = await captureWithPlaywright(page, p.route, publicDir, cacheDir);
+        const url = await captureWithPlaywright(context, p.route, publicDir, cacheDir);
         fs.writeFileSync(hashFile, hash);
         return { route: p.route, thumbnailUrl: url, ok: true, cached: false };
       } catch (err) {
         console.warn(`⚠️ 截图失败: ${p.route} - ${err.message}`);
         return { route: p.route, thumbnailUrl: null, ok: false, cached: false };
-      } finally {
-        if (page) await page.close();
       }
     }));
     results.push(...batchResults);

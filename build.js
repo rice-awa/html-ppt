@@ -113,7 +113,7 @@ if (isVercel) {
   if (fs.existsSync(assetsThumbsPath)) {
     fs.mkdirSync(publicThumbsPath, { recursive: true });
     for (const f of fs.readdirSync(assetsThumbsPath)) {
-      if (f.endsWith('.png')) {
+      if (f.endsWith('.webp')) {
         fs.copyFileSync(path.join(assetsThumbsPath, f), path.join(publicThumbsPath, f));
       }
     }
@@ -121,7 +121,7 @@ if (isVercel) {
   }
   for (const p of presentations) {
     const routeBase = p.route.replace(/^\//, '') || 'index';
-    const thumbName = routeBase.replace(/[^a-zA-Z0-9_-]/g, '_') + '.png';
+    const thumbName = routeBase.replace(/[^a-zA-Z0-9_-]/g, '_') + '.webp';
     const thumbPath = path.join(publicThumbsPath, thumbName);
     p.thumbnailUrl = fs.existsSync(thumbPath) ? `/thumbs/${thumbName}` : null;
   }

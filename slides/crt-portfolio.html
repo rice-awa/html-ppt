@@ -1,0 +1,1489 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#040804">
+<meta name="description" content="riceawa — Creative Developer. A fullscreen CRT terminal personal site: interactive shell, virtual filesystem, easter eggs.">
+<title>riceawa — CRT-1420 // creative developer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=VT323&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<script>document.documentElement.classList.add('js');</script>
+<style>
+/* ================= TOKENS ================= */
+:root{
+  --ph: #33ff66;
+  --ph-bright: #a2ffc4;
+  --ph-dim: #2a8a4a;
+  --ph-faint: #14522c;
+  --amber: #ffb000;
+  --red: #ff4b3e;
+  --blue: #4da6ff;
+  --bg: #040804;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, Menlo, monospace;
+  --px: "VT323", var(--mono);
+  --sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --contrast: 1;
+  --vh: 7s;
+  --dim: 0;
+}
+*{ box-sizing:border-box; margin:0; padding:0; }
+html,body{ height:100%; }
+body{
+  background:#020502;
+  color: var(--ph);
+  font-family: var(--mono);
+  overflow:hidden;
+  -webkit-font-smoothing: none;
+  text-rendering: optimizeSpeed;
+}
+::selection{ background: var(--ph); color:#02140a; }
+:focus{ outline:none; }
+:focus-visible{ outline:2px dashed var(--ph); outline-offset:3px; }
+
+/* ================= CRT ROOT (FULLSCREEN) ================= */
+.crt-root{
+  position:fixed; inset:0;
+  background: var(--bg);
+  display:flex; flex-direction:column;
+  animation: flicker 3.8s linear infinite;
+  will-change: opacity;
+  filter: contrast(var(--contrast));
+}
+@keyframes flicker{
+  0%,100%{ opacity:1 }
+  91%{ opacity:1 }
+  92%{ opacity:.955 }
+  93%{ opacity:1 }
+  95%{ opacity:.99 }
+  96%{ opacity:1 }
+  97.5%{ opacity:.965 }
+  98.5%{ opacity:1 }
+}
+.crt-inner{
+  position:absolute; inset:0;
+  display:flex; flex-direction:column;
+  transform-origin: 50% 50%;
+  transition: transform .3s cubic-bezier(.7,0,.3,1), opacity .25s linear;
+  border: clamp(6px, 1.2vmin, 16px) solid #05060a;
+  border-radius: clamp(10px, 1.6vmin, 22px);
+  overflow:hidden;
+}
+.crt-root.off .crt-content{ transform: scaleY(.004); opacity:.4; }
+.crt-root.off .crt{ opacity:0; transition:opacity .3s; }
+.crt-root.off{ animation:none; }
+
+/* content layer */
+.crt-content{
+  position:absolute; inset:0; z-index:1;
+  display:flex; flex-direction:column;
+  transition: transform .5s cubic-bezier(.7,0,.3,1), opacity .35s ease;
+}
+
+/* ================= OVERLAYS ================= */
+.crt{ position:absolute; inset:0; pointer-events:none; }
+.crt.rollbar{
+  z-index:2; height:16%; top:-16%;
+  background:linear-gradient(180deg, transparent, rgba(180,255,200,.05) 45%, rgba(200,255,215,.09) 50%, rgba(180,255,200,.05) 55%, transparent);
+  animation: roll var(--vh, 7s) linear infinite;
+}
+@keyframes roll{ to{ transform: translateY(130vh); } }
+.crt.noise{ z-index:3; width:100%; height:100%; image-rendering: pixelated; opacity:.55; mix-blend-mode: screen; }
+.crt.aperture{
+  z-index:4;
+  background: repeating-linear-gradient(90deg,
+    rgba(255,0,60,.028) 0 1px,
+    rgba(0,255,120,.02) 1px 2px,
+    rgba(0,120,255,.028) 2px 3px);
+}
+.crt.scanlines{
+  z-index:5;
+  background: repeating-linear-gradient(180deg,
+    rgba(0,0,0,0) 0 2px,
+    rgba(0,0,0,.22) 2px 3px,
+    rgba(0,0,0,0) 3px 4px);
+}
+.crt.vignette{
+  z-index:6;
+  background:
+    radial-gradient(120% 105% at 50% 42%, transparent 52%, rgba(0,0,0,.26) 82%, rgba(0,0,0,.52) 100%),
+    linear-gradient(180deg, rgba(0,0,0,.14), transparent 9% 91%, rgba(0,0,0,.2));
+}
+.crt.glass{
+  z-index:7;
+  background:
+    radial-gradient(90% 60% at 30% 12%, rgba(255,255,255,.05), transparent 55%),
+    linear-gradient(118deg, rgba(255,255,255,.045) 0%, rgba(255,255,255,.012) 16%, transparent 27% 74%, rgba(255,255,255,.018) 86%, transparent 94%);
+}
+.crt.dim{ z-index:8; background:#000; opacity: var(--dim, 0); }
+
+/* ================= BOOT ================= */
+#boot{
+  position:absolute; inset:0; z-index:10;
+  padding: clamp(16px, 4vmin, 40px);
+  background: var(--bg);
+  transition: opacity .35s ease;
+  display:none;
+  cursor:pointer;
+}
+.js #boot{ display:block; }
+#boot.gone{ opacity:0; pointer-events:none; }
+#boot pre{
+  font-family: var(--mono);
+  font-size: clamp(11px, 1.8vh + .35vw, 16px);
+  line-height: 1.6;
+  white-space: pre;
+  color: var(--ph);
+  text-shadow: 0 0 6px rgba(51,255,102,.55);
+  max-width: 1120px; margin: 0 auto;
+}
+#boot .boot-caret::after{ content:"▊"; animation: blink 1s steps(1) infinite; }
+@keyframes blink{ 50%{ opacity:0; } }
+#boot .skip{
+  position:absolute; bottom:5vmin; right:4vmin;
+  font-size: clamp(10px, 1.4vh, 13px);
+  color: var(--ph-dim);
+  animation: blink 1.6s steps(1) infinite;
+}
+
+/* ================= CHROME ================= */
+.topbar{
+  display:flex; align-items:center; gap:14px;
+  padding: clamp(8px, 1.4vh, 12px) clamp(12px, 2vw, 24px);
+  border-bottom:1px solid rgba(51,255,102,.3);
+  background: linear-gradient(180deg, rgba(51,255,102,.08), rgba(51,255,102,.015));
+  flex-wrap:wrap;
+  z-index:20;
+}
+.brand{
+  display:flex; align-items:center; gap:10px;
+  font-size: clamp(11px, 1.5vh, 13px);
+  letter-spacing:.06em; color: var(--ph-bright);
+  white-space:nowrap;
+}
+.brand .dot{ width:8px; height:8px; border-radius:50%; background:var(--ph); box-shadow:0 0 9px var(--ph); }
+.tabs{ display:flex; gap:6px; flex-wrap:wrap; flex:1; justify-content:center; margin:0; }
+.top-right{ min-width: clamp(120px, 18vw, 190px); text-align:right; font-size:10px; letter-spacing:.14em; color:var(--ph-dim); }
+.tab{
+  appearance:none; border:1px solid rgba(51,255,102,.35);
+  background:transparent; color:var(--ph);
+  font-family:var(--mono); font-size:clamp(10px, 1.4vh, 12px);
+  letter-spacing:.1em; padding:4px 12px; cursor:pointer;
+  transition: background .18s, color .18s, box-shadow .18s, border-color .18s;
+}
+.tab:hover{ background:rgba(51,255,102,.14); box-shadow:0 0 12px rgba(51,255,102,.25); }
+.tab.active{ background:var(--ph); color:#02140a; box-shadow:0 0 18px rgba(51,255,102,.5); }
+
+.main{
+  flex:1; position:relative;
+  min-height:0;
+}
+.sec{
+  position:absolute; inset:0;
+  visibility:hidden; opacity:0; transform:translateY(10px);
+  transition: opacity .3s ease, transform .3s cubic-bezier(.2,.8,.2,1), visibility 0s linear .3s;
+}
+.sec.active{ visibility:visible; opacity:1; transform:none; transition-delay:0s; }
+.sec-scroll{
+  position:absolute; inset:0;
+  overflow-y:auto; overflow-x:hidden;
+  scrollbar-width:thin; scrollbar-color: rgba(51,255,102,.45) transparent;
+  padding: clamp(14px, 3vmin, 30px);
+}
+.sec-scroll::-webkit-scrollbar{ width:9px; }
+.sec-scroll::-webkit-scrollbar-thumb{ background:rgba(51,255,102,.35); border-radius:4px; }
+.sec-scroll::-webkit-scrollbar-track{ background:transparent; }
+.sec-inner{ max-width: 1060px; margin: 0 auto; }
+#sec-about .sec-inner{ max-width: 800px; }
+
+/* ================= TERMINAL ================= */
+.term{
+  position:absolute; inset:0;
+  display:flex; flex-direction:column;
+  padding: clamp(12px, 2.4vmin, 26px);
+  max-width: 1140px; margin: 0 auto;
+}
+.term-out{
+  flex:1; overflow-y:auto;
+  scrollbar-width:thin; scrollbar-color: rgba(51,255,102,.45) transparent;
+  font-size: clamp(12px, 1.65vh + .4vw, 16px);
+  line-height: 1.65;
+  text-shadow: 0 0 5px rgba(51,255,102,.35);
+  word-break: break-word;
+}
+.term-out::-webkit-scrollbar{ width:9px; }
+.term-out::-webkit-scrollbar-thumb{ background:rgba(51,255,102,.35); border-radius:4px; }
+.term-out pre{ white-space:pre-wrap; word-break:break-word; font-family:var(--mono); font-size:inherit; line-height:inherit; }
+.term-out .banner{
+  font-family: var(--px), var(--mono);
+  font-size: clamp(9px, 2.75vw, 42px);
+  line-height: 1.05;
+  white-space: pre;
+  color: var(--ph-bright);
+  text-shadow:
+    0 0 6px rgba(51,255,102,.9),
+    0 0 26px rgba(51,255,102,.45),
+    1.5px 0 rgba(255,40,60,.2),
+    -1.5px 0 rgba(0,140,255,.2);
+}
+.term-out .c-prompt{ color:var(--amber); font-weight:600; }
+.term-out .c-cmd{ color:var(--ph-bright); }
+.term-out .c-out{ color:var(--ph); }
+.term-out .c-dim{ color:var(--ph-dim); }
+.term-out .c-err{ color:var(--red); text-shadow:0 0 8px rgba(255,75,62,.4); }
+.term-out .c-amber{ color:var(--amber); }
+.term-out .c-blue{ color:var(--blue); }
+.term-out a{ color:var(--ph-bright); text-decoration:underline dashed; text-shadow:0 0 6px rgba(51,255,102,.5); }
+.term-out a:hover{ text-decoration:underline; }
+.term-out .caret::after{ content:"▊"; animation: blink 1s steps(1) infinite; }
+.term-in{
+  display:flex; align-items:center; gap:10px;
+  padding-top: clamp(10px, 1.6vmin, 16px);
+  border-top:1px solid rgba(51,255,102,.25);
+}
+.term-in .ps1{ color:var(--amber); font-weight:600; font-size:clamp(12px,1.7vh,15px); white-space:nowrap; }
+.term-in input{
+  flex:1; background:transparent; border:none; outline:none;
+  color:var(--ph-bright); font-family:var(--mono);
+  font-size: clamp(12px, 1.7vh, 15px);
+  caret-color: var(--ph);
+  text-shadow: 0 0 6px rgba(51,255,102,.5);
+  min-width:0;
+}
+.term-in input::placeholder{ color:var(--ph-dim); }
+.term-in .term-hint{
+  font-size: clamp(9px, 1.2vh, 11px); color:var(--ph-dim);
+  white-space:nowrap;
+}
+
+/* ================= RENDERED SECTIONS ================= */
+.h2{
+  font-family: var(--px); font-weight:400;
+  font-size: clamp(22px, 3.6vh, 34px);
+  color: var(--ph-bright);
+  text-shadow: 0 0 10px rgba(51,255,102,.55);
+  margin: 4px 0 14px;
+}
+.h2::before{ content:"▸ "; color:var(--amber); }
+.h2 .en{ color:var(--ph-dim); font-size:.5em; letter-spacing:.2em; margin-left:8px; }
+.lead{ color:var(--ph-dim); font-size:clamp(11px,1.5vh,13px); margin-bottom:20px; line-height:1.7; }
+
+.works-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); gap:14px; }
+.work{
+  border:1px solid rgba(51,255,102,.32);
+  background: rgba(51,255,102,.045);
+  padding:16px;
+  text-decoration:none; color:var(--ph);
+  display:flex; flex-direction:column; gap:9px;
+  transition: border-color .2s, box-shadow .2s, transform .2s, background .2s;
+}
+.work:hover{
+  border-color: rgba(51,255,102,.8);
+  box-shadow: 0 0 24px rgba(51,255,102,.22), inset 0 0 30px rgba(51,255,102,.05);
+  transform: translateY(-2px);
+  background: rgba(51,255,102,.07);
+}
+.work .w-meta{ font-size:10px; color:var(--amber); letter-spacing:.14em; display:flex; justify-content:space-between; }
+.work .w-title{ font-family:var(--px); font-size:clamp(22px, 2.8vh, 30px); color:var(--ph-bright); text-shadow:0 0 10px rgba(51,255,102,.5); line-height:1; }
+.work .w-desc{ font-size:clamp(11px,1.5vh,12.5px); line-height:1.7; opacity:.95; }
+.work .w-tags{ display:flex; flex-wrap:wrap; gap:5px; margin-top:auto; }
+.work .w-tags span{
+  font-size:9.5px; letter-spacing:.08em; padding:2px 7px;
+  border:1px solid rgba(51,255,102,.3); color:var(--ph-dim);
+}
+.work .w-go{ font-size:10px; color:var(--ph-dim); letter-spacing:.12em; }
+.work:hover .w-go{ color:var(--ph-bright); }
+
+.stack-blocks{ display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; }
+.stack-block{
+  border:1px solid rgba(51,255,102,.3);
+  background:rgba(51,255,102,.04);
+  padding:18px;
+}
+.stack-block h3{ font-family:var(--px); font-size:clamp(20px,2.6vh,26px); color:var(--ph-bright); text-shadow:0 0 10px rgba(51,255,102,.5); margin-bottom:12px; }
+.stack-block h3::before{ content:"# "; color:var(--amber); }
+.stack-block p{ font-size:clamp(11px,1.5vh,12.5px); color:var(--ph-dim); line-height:1.8; margin-top:10px; }
+.chips{ display:flex; flex-wrap:wrap; gap:7px; }
+.chips span{
+  font-size:clamp(10px,1.4vh,12px); padding:4px 10px;
+  border:1px solid rgba(51,255,102,.35); color:var(--ph);
+  text-shadow:0 0 6px rgba(51,255,102,.4);
+}
+.chips span:hover{ background:rgba(51,255,102,.12); }
+
+.about-wrap{ max-width:720px; }
+.about-bio{
+  font-size: clamp(13px, 1.9vh, 16px);
+  line-height: 2;
+  color: var(--ph);
+  margin-bottom: 22px;
+}
+.about-bio b{ color:var(--ph-bright); text-shadow:0 0 8px rgba(51,255,102,.5); font-weight:600; }
+.stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:22px; }
+.stat{
+  border:1px solid rgba(51,255,102,.3); padding:12px 10px;
+  background:rgba(51,255,102,.05); text-align:center;
+  transition: box-shadow .2s, transform .2s;
+}
+.stat:hover{ box-shadow:0 0 18px rgba(51,255,102,.22); transform:translateY(-2px); }
+.stat b{ font-family:var(--px); font-weight:400; font-size:clamp(24px,4vh,36px); color:var(--ph-bright); text-shadow:0 0 12px rgba(51,255,102,.6); line-height:1; display:block; }
+.stat span{ font-size:9.5px; letter-spacing:.14em; color:var(--ph-dim); }
+.gh-line{
+  border:1px dashed rgba(51,255,102,.3); padding:12px 16px;
+  font-size:clamp(11px,1.5vh,13px); color:var(--ph-dim);
+  display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;
+}
+.gh-line a{ color:var(--ph-bright); text-decoration:underline dashed; }
+
+.contact-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; max-width:860px; }
+.c-card{
+  border:1px solid rgba(51,255,102,.32); padding:18px;
+  text-decoration:none; color:var(--ph);
+  background:rgba(51,255,102,.045);
+  display:flex; flex-direction:column; gap:8px;
+  transition: border-color .2s, box-shadow .2s, transform .2s, background .2s;
+}
+.c-card:hover{
+  border-color:rgba(51,255,102,.8); background:rgba(51,255,102,.08);
+  box-shadow:0 0 22px rgba(51,255,102,.22); transform:translateY(-2px);
+}
+.c-card .cc-num{ font-size:10px; color:var(--amber); letter-spacing:.16em; }
+.c-card .cc-name{ font-family:var(--px); font-size:clamp(20px,2.6vh,26px); color:var(--ph-bright); text-shadow:0 0 10px rgba(51,255,102,.5); }
+.c-card .cc-desc{ font-size:clamp(11px,1.5vh,12.5px); color:var(--ph-dim); line-height:1.6; }
+.c-card .cc-arrow{ font-size:12px; color:var(--ph); }
+.c-note{ margin-top:22px; font-size:clamp(11px,1.5vh,13px); color:var(--ph-dim); }
+.c-note b{ color:var(--amber); font-weight:600; }
+
+/* ================= STATUS BAR ================= */
+.statusbar{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding: clamp(5px, 1vh, 8px) clamp(12px, 2vw, 24px);
+  border-top:1px solid rgba(51,255,102,.25);
+  background: rgba(51,255,102,.04);
+  font-size: clamp(9px, 1.2vh, 11px);
+  letter-spacing:.12em; color:var(--ph-dim);
+  z-index:20; flex-wrap:wrap;
+}
+.statusbar .live{ color:var(--ph); text-shadow:0 0 6px rgba(51,255,102,.5); }
+.statusbar .right{ display:flex; align-items:center; gap:14px; }
+.power-btn{
+  appearance:none; border:1px solid rgba(51,255,102,.4); cursor:pointer;
+  background:transparent; color:var(--ph);
+  font-family:var(--mono); font-size:9px; letter-spacing:.16em;
+  padding:3px 9px;
+  transition: background .15s, box-shadow .15s;
+}
+.power-btn:hover{ background:rgba(51,255,102,.14); box-shadow:0 0 10px rgba(51,255,102,.3); }
+.led{ width:7px; height:7px; border-radius:50%; background:#221408; border:1px solid #000; }
+.crt-root:not(.off) .led{
+  background:#37ff6b;
+  box-shadow:0 0 8px #37ff6b, 0 0 18px rgba(55,255,107,.5);
+  animation: ledpulse 2.4s ease-in-out infinite;
+}
+@keyframes ledpulse{ 50%{ box-shadow:0 0 5px #37ff6b, 0 0 10px rgba(55,255,107,.3);} }
+
+/* ================= SHUTDOWN ================= */
+#shutdown{
+  position:absolute; inset:0; z-index:45;
+  display:none; align-items:center; justify-content:center;
+  background: var(--bg);
+  padding: clamp(16px, 4vmin, 40px);
+  cursor:pointer;
+}
+#shutdown.open{ display:flex; }
+#shutdown pre{
+  font-family: var(--mono);
+  font-size: clamp(11px, 1.8vh + .35vw, 16px);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  color: var(--ph);
+  text-shadow: 0 0 6px rgba(51,255,102,.5);
+  max-width: 1120px;
+}
+
+/* ================= EFFECTS BAR ================= */
+.fxbar{
+  display:flex; align-items:center; justify-content:center; gap: clamp(16px, 3vw, 44px);
+  padding: clamp(7px, 1.1vh, 11px) clamp(12px, 2vw, 24px);
+  border-top:1px solid rgba(51,255,102,.18);
+  background: rgba(0,0,0,.4);
+  flex-wrap:wrap; z-index:20;
+}
+.fx-label{ font-size:9px; letter-spacing:.24em; color:var(--ph-dim); }
+.fx-knob{ display:flex; align-items:center; gap:8px; }
+.fx-knob label{ font-size:9px; letter-spacing:.16em; color:var(--ph-dim); min-width:52px; }
+.fx-knob input[type=range]{
+  -webkit-appearance:none; appearance:none;
+  width: clamp(70px, 12vw, 150px); height:4px;
+  background:#07120a; border-radius:2px;
+  border:1px solid rgba(51,255,102,.3);
+  box-shadow: inset 0 1px 2px #000;
+}
+.fx-knob input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; appearance:none;
+  width:13px; height:13px; border-radius:50%;
+  background: radial-gradient(circle at 35% 30%, #a2ffc4, #33ff66 55%, #0e3a1d);
+  border:1px solid #02140a;
+  box-shadow: 0 0 8px rgba(51,255,102,.7);
+  cursor:pointer;
+}
+.fx-knob input[type=range]::-moz-range-thumb{
+  width:13px; height:13px; border-radius:50%;
+  background: radial-gradient(circle at 35% 30%, #a2ffc4, #33ff66 55%, #0e3a1d);
+  border:1px solid #02140a;
+  box-shadow: 0 0 8px rgba(51,255,102,.7);
+  cursor:pointer;
+}
+.fx-knob input[type=range]:focus-visible{ outline:2px dashed var(--ph); outline-offset:3px; }
+.fx-val{ font-size:9px; color:var(--ph-bright); min-width:30px; text-align:right; }
+
+/* ================= STANDBY ================= */
+.standby{
+  position:absolute; inset:0; z-index:50;
+  display:none; align-items:center; justify-content:center;
+  background:#010301; cursor:pointer;
+  flex-direction:column; gap:18px;
+}
+.crt-root.off .standby{ display:flex; }
+.standby .s-dot{
+  width:10px; height:10px; border-radius:50%;
+  background:#37ff6b;
+  box-shadow:0 0 10px #37ff6b, 0 0 26px rgba(55,255,107,.5);
+  animation: blink 1.4s steps(1) infinite;
+}
+.standby .s-txt{ color:var(--ph-dim); font-size:clamp(10px,1.4vh,13px); letter-spacing:.3em; animation: blink 1.4s steps(1) infinite; }
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 720px){
+  .tabs{ width:100%; margin-left:0; order:3; }
+  .top-right{ display:none; }
+  .stats{ grid-template-columns:repeat(2,1fr); }
+  .term-in .term-hint{ display:none; }
+  .fxbar{ justify-content:flex-start; gap:12px; }
+}
+@media (max-width: 480px){
+  .stats{ grid-template-columns:repeat(2,1fr); }
+}
+
+/* ================= REDUCED MOTION ================= */
+@media (prefers-reduced-motion: reduce){
+  *, *::before, *::after{ animation-duration:.001s !important; transition-duration:.001s !important; }
+  .crt.rollbar{ display:none; }
+  .crt-root{ animation:none; }
+}
+</style>
+</head>
+<body>
+
+<div class="crt-root" id="crtRoot">
+  <div class="crt-inner">
+
+    <!-- ============ BOOT ============ -->
+    <div id="boot">
+      <pre id="bootText"></pre>
+      <div class="skip" id="bootSkip">ANY KEY / CLICK TO SKIP</div>
+    </div>
+
+    <!-- ============ SHUTDOWN ============ -->
+    <div id="shutdown" role="status" aria-live="assertive">
+      <pre id="shutdownText"></pre>
+    </div>
+
+    <!-- ============ APP ============ -->
+    <div class="crt-content" id="app">
+      <header class="topbar">
+        <div class="brand"><span class="dot"></span> rice@awa — RICE·AWA CRT-1420</div>
+        <nav class="tabs" role="tablist" aria-label="页面导航">
+          <button class="tab active" role="tab" aria-selected="true" data-sec="term">TERMINAL</button>
+          <button class="tab" role="tab" aria-selected="false" data-sec="works">WORKS</button>
+          <button class="tab" role="tab" aria-selected="false" data-sec="stack">STACK</button>
+          <button class="tab" role="tab" aria-selected="false" data-sec="about">ABOUT</button>
+          <button class="tab" role="tab" aria-selected="false" data-sec="contact">CONTACT</button>
+        </nav>
+        <div class="top-right"><span class="sig">P1 GREEN · 60Hz</span></div>
+      </header>
+
+      <div class="main" id="main">
+
+        <!-- ============ TERMINAL (HOME) ============ -->
+        <section class="sec active" id="sec-term" role="tabpanel" aria-label="终端主页">
+          <div class="term">
+            <div class="term-out" id="termOut" role="log" aria-label="终端输出"></div>
+            <div class="term-in">
+              <span class="ps1" id="ps1">rice@awa:~$</span>
+              <input id="cmd" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" autocorrect="off" placeholder="type 'help'…" aria-label="终端命令">
+              <span class="term-hint">/ focus · ↑↓ history · TAB complete</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ WORKS ============ -->
+        <section class="sec" id="sec-works" role="tabpanel" aria-label="精选作品">
+          <div class="sec-scroll">
+            <div class="sec-inner">
+            <h2 class="h2">SELECTED WORKS <span class="en">精选作品</span></h2>
+            <p class="lead">真实上线、真实用户在用的项目 —— 从游戏模组到 AI 系统，每一个都从「自己想要用」开始。</p>
+            <div class="works-grid">
+              <a class="work" href="https://github.com/rice-awa/MCBE-AI-Agent" target="_blank" rel="noopener">
+                <span class="w-meta"><span>P.01 — 2026</span><span>AI AGENT</span></span>
+                <span class="w-title">MCBE AI Agent</span>
+                <span class="w-desc">Minecraft 基岩版的 AI Agent：异步消息队列解耦、多 LLM 支持、流式输出与多人会话隔离，让 AI 真正「住进」服务器。</span>
+                <span class="w-tags"><span>PYTHON</span><span>PYDANTICAI</span><span>WEBSOCKET</span><span>MCP</span></span>
+                <span class="w-go">OPEN REPO ↗</span>
+              </a>
+              <a class="work" href="https://github.com/rice-awa/LumiChat" target="_blank" rel="noopener">
+                <span class="w-meta"><span>P.02 — 2026</span><span>MINECRAFT MOD</span></span>
+                <span class="w-title">LumiChat</span>
+                <span class="w-desc">Minecraft Fabric 模组，把 LLM 聊天带入游戏：13 个游戏内工具调用、热编辑提示词模板、多 Provider 健康检查。</span>
+                <span class="w-tags"><span>JAVA</span><span>FABRIC</span><span>LLM</span><span>TOOL-CALL</span></span>
+                <span class="w-go">OPEN REPO ↗</span>
+              </a>
+              <a class="work" href="https://github.com/rice-awa" target="_blank" rel="noopener">
+                <span class="w-meta"><span>P.03 — 2025</span><span>MEDIA TOOL</span></span>
+                <span class="w-title">FFmpeg Web Tool</span>
+                <span class="w-desc">把 FFmpeg 编译进浏览器：音视频转码、压缩、裁剪全部本地完成，文件不上传，隐私零风险。</span>
+                <span class="w-tags"><span>JAVASCRIPT</span><span>WEBASSEMBLY</span><span>FFMPEG</span></span>
+                <span class="w-go">EXPLORE ↗</span>
+              </a>
+              <a class="work" href="https://github.com/rice-awa/AutoGradAI" target="_blank" rel="noopener">
+                <span class="w-meta"><span>P.04 — 2024</span><span>AI EDUCATION</span></span>
+                <span class="w-title">AI Essay Grader</span>
+                <span class="w-desc">AI 英语作文自动批改系统：多维度评分、逐句修改建议，把老师从重复劳动里解放出来。</span>
+                <span class="w-tags"><span>PYTHON</span><span>FLASK</span><span>LANGCHAIN</span></span>
+                <span class="w-go">OPEN REPO ↗</span>
+              </a>
+              <a class="work" href="https://rice-awa.top/" target="_blank" rel="noopener">
+                <span class="w-meta"><span>P.05 — 2024</span><span>PERSONAL SITE</span></span>
+                <span class="w-title">rice-awa.top</span>
+                <span class="w-desc">个人主页与工具集合：深色模式、项目展示、实用小工具，是我试验新技术的自留地。</span>
+                <span class="w-tags"><span>NEXT.JS</span><span>TYPESCRIPT</span><span>TAILWIND</span></span>
+                <span class="w-go">VISIT SITE ↗</span>
+              </a>
+            </div>
+            </div>
+            <p class="lead" style="margin-top:18px; margin-bottom:0;">还有更多在 GitHub 上 → <a href="https://github.com/rice-awa" target="_blank" rel="noopener" style="color:var(--ph-bright);">EXPLORE ALL REPOS ↗</a></p>
+          </div>
+        </section>
+
+        <!-- ============ STACK ============ -->
+        <section class="sec" id="sec-stack" role="tabpanel" aria-label="技术栈">
+          <div class="sec-scroll">
+            <div class="sec-inner">
+            <h2 class="h2">STACK <span class="en">技术栈</span></h2>
+            <p class="lead">从浏览器到服务器，从方块世界到大模型 —— 全链路。</p>
+            <div class="stack-blocks">
+              <div class="stack-block">
+                <h3>FRONTEND</h3>
+                <div class="chips">
+                  <span>REACT</span><span>NEXT.JS</span><span>TYPESCRIPT</span><span>TAILWIND CSS</span><span>GSAP</span><span>MOTION</span><span>CANVAS</span>
+                </div>
+                <p>追求「好看」与「好用」同时成立。</p>
+              </div>
+              <div class="stack-block">
+                <h3>BACKEND &amp; TOOLS</h3>
+                <div class="chips">
+                  <span>PYTHON</span><span>NODE.JS</span><span>FLASK</span><span>DOCKER</span><span>LINUX</span><span>GIT</span>
+                </div>
+                <p>从原型到部署的全链路。</p>
+              </div>
+              <div class="stack-block">
+                <h3>LLM / AGENT</h3>
+                <div class="chips">
+                  <span>LLM</span><span>AGENT</span><span>LANGCHAIN</span><span>MCP</span><span>PYDANTICAI</span><span>WEBSOCKET</span>
+                </div>
+                <p>喜欢探索 LLM 的边界，把创意变成现实。</p>
+              </div>
+            </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ ABOUT ============ -->
+        <section class="sec" id="sec-about" role="tabpanel" aria-label="关于">
+          <div class="sec-scroll">
+            <div class="sec-inner">
+            <div class="about-wrap">
+              <h2 class="h2">ABOUT <span class="en">关于我</span></h2>
+              <p class="lead">RICEAWA · CREATIVE DEV · OPEN SOURCE · @RICE-AWA · EST. 2023</p>
+              <p class="about-bio">
+                你好，我是 <b>riceawa</b> —— 一个把好奇心当燃料的开发者。<br>
+                专注于<b>前端开发</b>与 <b>AI 应用</b>，喜欢探索 LLM 的边界，享受把创意变成现实的过程。<br>
+                在 Minecraft 社区里造过模组和 AI Agent，也在 B 站分享技术内容。<br><br>
+                相信技术的力量，也相信分享的价值 —— 开源、写作、做工具，是我与世界交换灵感的方式。
+              </p>
+              <div class="stats">
+                <div class="stat"><b>05+</b><span>PROJECTS 项目</span></div>
+                <div class="stat"><b>10+</b><span>TECH STACK 技术栈</span></div>
+                <div class="stat"><b>03+</b><span>YEARS CODING 年限</span></div>
+                <div class="stat"><b>∞</b><span>CURIOSITY 好奇心</span></div>
+              </div>
+              <div class="gh-line">
+                <span>OPEN SOURCE ACTIVITY · 开源贡献</span>
+                <span><b style="color:var(--ph-bright);">1,659</b> CONTRIBUTIONS · LAST 365 DAYS</span>
+                <a href="https://github.com/rice-awa" target="_blank" rel="noopener">@rice-awa ON GITHUB ↗</a>
+              </div>
+            </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ CONTACT ============ -->
+        <section class="sec" id="sec-contact" role="tabpanel" aria-label="联系">
+          <div class="sec-scroll">
+            <div class="sec-inner">
+            <h2 class="h2">CONTACT <span class="en">联系我</span></h2>
+            <p class="lead">LET'S BUILD SOMETHING → · 有一个值得被认真做出来的想法？从一句话开始。</p>
+            <div class="contact-grid">
+              <a class="c-card" href="https://github.com/rice-awa" target="_blank" rel="noopener">
+                <span class="cc-num">01</span>
+                <span class="cc-name">GITHUB</span>
+                <span class="cc-desc">代码与开源项目</span>
+                <span class="cc-arrow">→</span>
+              </a>
+              <a class="c-card" href="https://space.bilibili.com/521856101" target="_blank" rel="noopener">
+                <span class="cc-num">02</span>
+                <span class="cc-name">BILIBILI</span>
+                <span class="cc-desc">技术分享与视频</span>
+                <span class="cc-arrow">→</span>
+              </a>
+              <a class="c-card" href="https://blog.rice-awa.top/" target="_blank" rel="noopener">
+                <span class="cc-num">03</span>
+                <span class="cc-name">BLOG</span>
+                <span class="cc-desc">文章与想法</span>
+                <span class="cc-arrow">→</span>
+              </a>
+              <a class="c-card" href="mailto:hi@rice-awa.top">
+                <span class="cc-num">04</span>
+                <span class="cc-name">EMAIL</span>
+                <span class="cc-desc">hi@rice-awa.top — 通常 24h 内回复</span>
+                <span class="cc-arrow">→</span>
+              </a>
+            </div>
+            </div>
+            <p class="c-note"><b>OPEN FOR COLLABORATION</b> — © 2026 RICEAWA · DESIGNED &amp; BUILT WITH ♥ ON A CRT</p>
+          </div>
+        </section>
+
+      </div>
+
+      <div class="fxbar" role="group" aria-label="屏幕效果调节">
+        <span class="fx-label">EFFECTS</span>
+        <div class="fx-knob">
+          <label for="brightness">BRIGHT</label>
+          <input type="range" id="brightness" min="40" max="160" value="100" aria-label="亮度">
+          <span class="fx-val" id="brightnessVal">100</span>
+        </div>
+        <div class="fx-knob">
+          <label for="contrast">CONTRAST</label>
+          <input type="range" id="contrast" min="70" max="150" value="100" aria-label="对比度">
+          <span class="fx-val" id="contrastVal">100</span>
+        </div>
+        <div class="fx-knob">
+          <label for="vhold">V.HOLD</label>
+          <input type="range" id="vhold" min="30" max="130" value="70" aria-label="垂直同步">
+          <span class="fx-val" id="vholdVal">70</span>
+        </div>
+      </div>
+
+      <footer class="statusbar">
+        <span>RICE·AWA CRT-1420 · P1 GREEN</span>
+        <span class="live">SIGNAL LOCKED · 60Hz · <span id="uptime">up 00:00</span></span>
+        <span class="right">
+          <span class="led" aria-hidden="true"></span>
+          <button class="power-btn" id="powerBtn" aria-pressed="true">⏻ POWER</button>
+          <span id="clock" class="live">---</span>
+        </span>
+      </footer>
+    </div>
+
+<!-- ============ STANDBY ============ -->
+      <div class="standby" id="standby" role="button" tabindex="0" aria-label="按下以开机">
+        <div class="s-dot"></div>
+        <div class="s-txt">STANDBY — CLICK TO POWER ON</div>
+      </div>
+
+    <!-- CRT OVERLAYS -->
+    <div class="crt dim"></div>
+    <canvas class="crt noise" id="noise"></canvas>
+    <div class="crt aperture"></div>
+    <div class="crt scanlines"></div>
+    <div class="crt vignette"></div>
+    <div class="crt rollbar"></div>
+    <div class="crt glass"></div>
+
+  </div>
+</div>
+
+<noscript>
+  <style>
+    #boot{ display:none !important; }
+    #app{ display:flex !important; }
+    .sec{ position:static; visibility:visible !important; opacity:1 !important; transform:none !important; }
+    .sec-scroll{ position:static; overflow:visible; }
+    .crt.noise,.crt.rollbar{ display:none; }
+  </style>
+</noscript>
+
+<script>
+(function(){
+  "use strict";
+  const $ = s => document.querySelector(s);
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ================= NOISE ================= */
+  const noise = $("#noise"), nW = 180, nH = 135;
+  noise.width = nW; noise.height = nH;
+  const nctx = noise.getContext("2d");
+  const nimg = nctx.createImageData(nW, nH);
+  function noiseFrame(){
+    const d = nimg.data;
+    for (let i = 0; i < d.length; i += 4){
+      const v = (Math.random() * 255) | 0;
+      d[i] = v; d[i+1] = v; d[i+2] = v; d[i+3] = 22;
+    }
+    nctx.putImageData(nimg, 0, 0);
+  }
+  if (!reduced) setInterval(noiseFrame, 90);
+
+  /* ================= AUDIO ================= */
+  let actx = null;
+  function beep(freq, dur, vol){
+    try{
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = "square"; o.frequency.value = freq;
+      g.gain.setValueAtTime(vol, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(.0001, actx.currentTime + dur / 1000);
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + dur / 1000);
+    }catch(e){}
+  }
+
+  /* ================= BOOT ================= */
+  const bootEl = $("#boot"), bootText = $("#bootText");
+  const app = $("#app");
+  const BOOT_LINES = [
+    "RICE-AWA SYSTEMS BIOS v1.4.2  (C) 1991 RICE AWA SYSTEMS",
+    "CPU ....... M68000 @ 7.16 MHz ............. OK",
+    "MEM ....... 640 KB BASE + 384 KB EXT ...... OK",
+    "VIDEO ..... P1 GREEN 640x480 @ 60.00 Hz ... OK",
+    "DISK ...... RICE-AWA OS v1.4.2 ........... OK",
+    "",
+    "LOADING KERNEL .......... DONE",
+    ""
+  ];
+  const BOOT_BANNER = [
+    " ____  ___ ____ _____      ___        ___",
+    "|  _ \\|_ _/ ___| ____|    / \\ \\      / / \\",
+    "| |_) || | |   |  _|     / _ \\ \\ /\\ / / _ \\",
+    "|  _ < | | |___| |___   / ___ \\ V  V / ___ \\",
+    "|_| \\_\\___\\____|_____| /_/   \\_\\_/\\_/_/   \\_\\",
+    "   RICE-AWA OS 1.4.2 · interactive home",
+    ""
+  ];
+  let bootTimer = null, bootEntered = false;
+
+  function bootSequence(){
+    bootEntered = false;
+    clearTimeout(bootTimer);
+    bootEl.classList.remove("gone");
+    bootEl.style.display = "block";
+    bootText.textContent = "";
+    let i = 0, line = "";
+    const out = [];
+    const speed = reduced ? 1 : 10;
+    const lines = BOOT_LINES.concat(BOOT_BANNER);
+    function tick(){
+      if (!line){
+        if (i >= lines.length){
+          bootText.textContent = lines.join("\n") + "\nANY KEY / CLICK TO SKIP ";
+          bootTimer = setTimeout(enterSite, reduced ? 100 : 1400);
+          return;
+        }
+        line = lines[i]; out.push("");
+      }
+      out[out.length-1] += line[0] || "";
+      line = line.slice(1);
+      bootText.textContent = out.join("\n") + "\n";
+      if (!line){ i++; }
+      bootTimer = setTimeout(tick, speed + Math.random() * 20);
+    }
+    tick();
+  }
+  function enterSite(){
+    if (bootEntered) return;
+    bootEntered = true;
+    clearTimeout(bootTimer);
+    bootEl.classList.add("gone");
+    setTimeout(() => { bootEl.style.display = "none"; }, 400);
+    beep(880, 60, .035);
+    if (!shellWelcomed){
+      shellWelcomed = true;
+      printWelcome();
+    }
+    $("#cmd").focus({ preventScroll: true });
+  }
+  let shellWelcomed = false;
+  bootEl.addEventListener("click", enterSite);
+  document.addEventListener("keydown", e => { if (!bootEntered && e.key) enterSite(); });
+
+  /* ================= CLOCK / UPTIME ================= */
+  const bootAt = Date.now();
+  const clockEl = $("#clock"), uptimeEl = $("#uptime");
+  function fmtUptime(){
+    const s = Math.floor((Date.now() - bootAt) / 1000);
+    const p = n => String(n).padStart(2,"0");
+    return p(Math.floor(s/3600)) + ":" + p(Math.floor(s%3600/60)) + ":" + p(s%60);
+  }
+  setInterval(() => {
+    uptimeEl.textContent = "up " + fmtUptime();
+    const d = new Date();
+    const days = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+    const p = n => String(n).padStart(2,"0");
+    clockEl.textContent = days[d.getDay()] + " " + d.getFullYear() + "-" + p(d.getMonth()+1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+  }, 1000);
+
+  /* ================= TABS ================= */
+  const tabs = Array.from(document.querySelectorAll(".tab"));
+  const secs = Array.from(document.querySelectorAll(".sec"));
+  function showSec(name){
+    tabs.forEach(t => t.classList.toggle("active", t.dataset.sec === name));
+    secs.forEach(s => s.classList.toggle("active", s.id === "sec-" + name));
+    if (name === "term") $("#cmd").focus({ preventScroll: true });
+  }
+  tabs.forEach(t => t.addEventListener("click", () => showSec(t.dataset.sec)));
+
+  /* ================= VIRTUAL FILESYSTEM ================= */
+  const F = (size, date, content) => ({ type:"file", size, date, content });
+  const D = (children) => ({ type:"dir", size:4096, date:"2026", children });
+
+  const FS = {
+    "README.md": F(1024, "2026", [
+      "RICE—AWA OS v1.4.2 — interactive home",
+      "====================================",
+      "",
+      "你好，这里是 riceawa 的 CRT 终端主页。",
+      "整个网站的内容都藏在这个文件系统里：",
+      "",
+      "  ./about.txt         关于我",
+      "  ./manifesto.txt    创作宣言",
+      "  ./stack.txt        技术栈",
+      "  ./works/           精选项目 (5 个)",
+      "  ./contact.txt      联系方式",
+      "",
+      "常用命令:  help · ls · cat · cd · tree · open",
+      "小提示:    隐藏文件不会出现在普通 ls 里…",
+      "",
+      "    —— 把好奇心开源给每一个人"
+    ].join("\n")),
+    "about.txt": F(768, "2026", [
+      "RICEAWA · CREATIVE DEV · OPEN SOURCE · EST. 2023",
+      "",
+      "你好，我是 riceawa —— 一个把好奇心当燃料的开发者。",
+      "",
+      "专注于前端开发与 AI 应用，喜欢探索 LLM 的边界，",
+      "享受把创意变成现实的过程。",
+      "在 Minecraft 社区里造过模组和 AI Agent，也在 B 站分享技术内容。",
+      "",
+      "相信技术的力量，也相信分享的价值：",
+      "开源、写作、做工具，是我与世界交换灵感的方式。",
+      "",
+      "stats: 05+ projects · 10+ tech · 03+ years · ∞ curiosity",
+      "activity: 1,659 contributions in the last 365 days",
+      "         @rice-awa on github"
+    ].join("\n")),
+    "manifesto.txt": F(640, "2025", [
+      "MANIFESTO · 创作宣言",
+      "",
+      "WRITE CODE.    把想法变成可运行的现实",
+      "CRAFT WORLDS.  在像素与协议之间造世界",
+      "SHARE WONDER.  把好奇心开源给每一个人",
+      "",
+      "我相信代码是一种创作媒介。从 Minecraft 的方块世界",
+      "到 大语言模型的推理边界，我持续在「工程」与「趣味」",
+      "的交汇处建造东西 —— 然后把过程分享出来。"
+    ].join("\n")),
+    "stack.txt": F(512, "2026", [
+      "STACK · 技术栈",
+      "",
+      "FRONTEND   React / Next.js / TypeScript / Tailwind CSS / GSAP / Motion / Canvas",
+      "BACKEND    Python / Node.js / Flask / Docker / Linux / Git",
+      "AI         LLM / Agent / LangChain / MCP / PydanticAI / WebSocket",
+      "",
+      "前端：追求「好看」与「好用」同时成立。",
+      "后端：从原型到部署的全链路。"
+    ].join("\n")),
+    "contact.txt": F(384, "2026", [
+      "CONTACT · 联系我",
+      "",
+      "GITHUB    https://github.com/rice-awa",
+      "BILIBILI  https://space.bilibili.com/521856101",
+      "BLOG      https://blog.rice-awa.top/",
+      "EMAIL     hi@rice-awa.top — 通常 24h 内回复",
+      "",
+      "OPEN FOR COLLABORATION — 有想法？从一句话开始。"
+    ].join("\n")),
+    "todo.txt": F(256, "1991", [
+      "TODO (do not read this, it's private…)",
+      "",
+      "[x] 把想法变成可运行的现实",
+      "[x] 把好奇心开源给每一个人",
+      "[x] 找到这个文件的人 —— 加一分",
+      "[ ] 修复现实世界的 bug",
+      "[ ] 给这台 CRT 装 WiFi",
+      "[ ] 买牛奶",
+      "",
+      "ps: 你能 cat 到这里，说明你很有探索精神。"
+    ].join("\n")),
+    ".secret": F(160, "????", [
+      "██ 隐藏文件被发现 ██",
+      "",
+      "你找到了 ~/.secret —— 系统彩蛋 #01",
+      "奖励：虚拟咖啡一杯 ☕（请自取）",
+      "",
+      "试试: fortune · neofetch · cat todo.txt",
+      "以及: open works / open about"
+    ].join("\n")),
+    ".trail": F(128, "????", [
+      "……你踩到了一条面包屑。",
+      "",
+      "线索: 0x52 0x49 0x43 0x45 — ASCII",
+      "",
+      "宝藏就在文件系统深处。"
+    ].join("\n")),
+    "works": D({
+      "mcbe-ai-agent.md": F(420, "2026", [
+        "# P.01 — MCBE AI Agent (2026)",
+        "",
+        "Minecraft 基岩版的 AI Agent：异步消息队列解耦、多 LLM 支持、",
+        "流式输出与多人会话隔离，让 AI 真正「住进」服务器。",
+        "",
+        "tags: python · pydanticai · websocket · mcp",
+        "repo: https://github.com/rice-awa/MCBE-AI-Agent"
+      ].join("\n")),
+      "lumichat.md": F(380, "2026", [
+        "# P.02 — LumiChat (2026)",
+        "",
+        "Minecraft Fabric 模组，把 LLM 聊天带入游戏：",
+        "13 个游戏内工具调用、热编辑提示词模板、多 Provider 健康检查。",
+        "",
+        "tags: java · fabric · llm · tool-call",
+        "repo: https://github.com/rice-awa/LumiChat"
+      ].join("\n")),
+      "ffmpeg-web-tool.md": F(340, "2025", [
+        "# P.03 — FFmpeg Web Tool (2025)",
+        "",
+        "把 FFmpeg 编译进浏览器：音视频转码、压缩、裁剪全部本地完成，",
+        "文件不上传，隐私零风险。",
+        "",
+        "tags: javascript · webassembly · ffmpeg",
+        "repo: https://github.com/rice-awa"
+      ].join("\n")),
+      "essay-grader.md": F(320, "2024", [
+        "# P.04 — AI Essay Grader (2024)",
+        "",
+        "AI 英语作文自动批改系统：多维度评分、逐句修改建议，",
+        "把老师从重复劳动里解放出来。",
+        "",
+        "tags: python · flask · langchain",
+        "repo: https://github.com/rice-awa/AutoGradAI"
+      ].join("\n")),
+      "rice-awa-top.md": F(300, "2024", [
+        "# P.05 — rice-awa.top (2024)",
+        "",
+        "个人主页与工具集合：深色模式、项目展示、实用小工具，",
+        "是我试验新技术的自留地。",
+        "",
+        "tags: next.js · typescript · tailwind",
+        "link: https://rice-awa.top"
+      ].join("\n"))
+    })
+  };
+
+  /* ================= SHELL ================= */
+  const termOut = $("#termOut"), cmdInput = $("#cmd"), ps1El = $("#ps1");
+  let cwd = ["~"];
+  let history = [], hIdx = -1;
+
+  function pwd(){
+    return cwd.length === 1 ? "~" : "~/" + cwd.slice(1).join("/");
+  }
+  function updatePs1(){ ps1El.textContent = "rice@awa:" + pwd() + "$"; }
+
+  function printHtml(html){
+    const p = document.createElement("pre");
+    p.innerHTML = html;
+    termOut.appendChild(p);
+    scrollDown();
+  }
+  function printLines(lines){
+    const p = document.createElement("pre");
+    lines.forEach(l => {
+      const span = document.createElement("span");
+      span.className = l[0];
+      span.textContent = l[1];
+      p.appendChild(span);
+      p.appendChild(document.createTextNode("\n"));
+    });
+    termOut.appendChild(p);
+    scrollDown();
+  }
+  function scrollDown(){ termOut.scrollTop = termOut.scrollHeight; }
+
+  const C = { out:"c-out", dim:"c-dim", err:"c-err", amber:"c-amber", blue:"c-blue" };
+  function L(cls, text){ return [cls, text]; }
+
+  const BANNER = [
+    " ____  ___ ____ _____      ___        ___",
+    "|  _ \\|_ _/ ___| ____|    / \\ \\      / / \\",
+    "| |_) || | |   |  _|     / _ \\ \\ /\\ / / _ \\",
+    "|  _ < | | |___| |___   / ___ \\ V  V / ___ \\",
+    "|_| \\_\\___\\____|_____| /_/   \\_\\_/\\_/_/   \\_\\"
+  ].join("\n");
+
+  function printWelcome(){
+    printHtml('<span class="banner">' + BANNER + "</span>");
+    printLines([
+      L(C.out, "RICE—AWA OS 1.4.2 · interactive home · © 1991–2026"),
+      L(C.out, "用代码构建有趣的体验 —— 从 Minecraft 模组 到 AI Agent，从浏览器到服务器。"),
+      L(C.dim, "type 'help' 查看命令 · 'ls' 浏览文件 · 'ls -a' 发现隐藏文件"),
+      L(C.out, ""),
+      L(C.out, "")
+    ]);
+  }
+
+  const FORTUNES = [
+    "把想法变成可运行的现实。",
+    "在像素与协议之间造世界。",
+    "把好奇心开源给每一个人。",
+    "好看与好用，同时成立。",
+    "这是一个 1991 年的终端。你的网速在这里毫无意义。",
+    "CRT 是认真的。CRT 从不撒谎。",
+    "hi@rice-awa.top —— 24h 内回复，有时更快。",
+    "彩蛋不会自己走到你面前。试试 ls -a。",
+    "终端之外，还有一个完整的网站 —— 试试 open works。"
+  ];
+
+  function linkify(html){
+    return html.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>')
+               .replace(/(mailto:[^\s<]+)/g, '<a href="$1">$1</a>');
+  }
+
+  function fileLine(name, f, isDir){
+    const type = isDir ? "d" : "-";
+    const perms = isDir ? "rwxr-xr-x" : "rw-r--r--";
+    const p = n => String(n).padStart(12, " ");
+    return L(C.out, type + perms + p(f.size) + "  " + f.date + "  " + name + (isDir ? "/" : ""));
+  }
+
+  function lsDir(dirPath){
+    let node = FS;
+    if (dirPath.length){
+      for (const seg of dirPath){
+        if (!node[seg] || node[seg].type !== "dir") return null;
+        node = node[seg].children;
+      }
+    }
+    return node;
+  }
+  function resolvePath(arg){
+    if (!arg || arg === "~" || arg === "/" || arg === ".") return [];
+    const raw = arg.replace(/^~\//, "").replace(/^\//, "");
+    let parts = [];
+    if (raw.startsWith("./")) parts = raw.slice(2).split("/");
+    else if (raw.startsWith("../")){
+      parts = cwd.slice(1); parts.pop();
+      const rest = raw.slice(3).split("/").filter(Boolean);
+      parts = parts.concat(rest);
+    } else if (raw.includes("/")){
+      parts = raw.split("/");
+    } else {
+      parts = cwd.slice(1).concat([raw]);
+    }
+    return parts;
+  }
+
+  function cmdRun(rawInput){
+    const raw = rawInput.trim();
+    const line = document.createElement("pre");
+    line.innerHTML = '<span class="c-prompt">rice@awa:' + pwd() + '$</span> <span class="c-cmd">' + esc(raw) + "</span>";
+    termOut.appendChild(line);
+    if (!raw){ scrollDown(); return; }
+
+    const parts = raw.split(/\s+/);
+    const cmd = parts[0].toLowerCase();
+    const args = parts.slice(1);
+
+    switch (cmd){
+
+      case "help":
+        printLines([
+          L(C.amber, "AVAILABLE COMMANDS"),
+          L(C.out, "  help            this list"),
+          L(C.out, "  ls [-a] [dir]   list files (try: ls -a)"),
+          L(C.out, "  cat <file>      print file content (easter eggs inside)"),
+          L(C.out, "  cd <dir>        change directory (works)"),
+          L(C.out, "  pwd             print working directory"),
+          L(C.out, "  tree            show file tree"),
+          L(C.out, "  open <sec>      open rendered section: works / stack / about / contact / term"),
+          L(C.out, "  neofetch        system info"),
+          L(C.out, "  fortune         random wisdom"),
+          L(C.out, "  date / uptime   time stuff"),
+          L(C.out, "  clear           clear screen"),
+          L(C.out, "  reboot          reboot terminal"),
+          L(C.out, "  poweroff        power down"),
+          L(C.out, "  sudo <cmd>      ?"),
+          L(C.dim, "  shortcuts: about · manifesto · stack · works · contact · github · bilibili · blog · email"),
+          L(C.out, "")
+        ]);
+        break;
+
+      case "ls": {
+        let showAll = false;
+        let rest = args.slice();
+        if (rest[0] === "-a" || rest[0] === "-la" || rest[0] === "-al"){ showAll = true; rest = rest.slice(1); }
+        const target = rest.length ? resolvePath(rest.join(" ")) : cwd.slice(1);
+        const dir = lsDir(target);
+        if (!dir){
+          printLines([L(C.err, "ls: no such directory: " + args.join(" "))]);
+          break;
+        }
+        if (showAll) printLines([L(C.dim, "total " + Object.keys(dir).length * 2)]);
+        Object.keys(dir).sort().forEach(name => {
+          const f = dir[name];
+          if (!showAll && name.startsWith(".")) return;
+          printLines([fileLine(name, f, f.type === "dir")]);
+        });
+        const hasHidden = Object.keys(dir).some(n => n.startsWith("."));
+        if (!showAll && hasHidden) printLines([L(C.dim, ""), L(C.dim, "hint: 有东西被藏起来了。试试 ls -a")]);
+        printLines([L(C.out, "")]);
+        break;
+      }
+
+      case "cat": {
+        if (!args.length){ printLines([L(C.err, "cat: missing operand — usage: cat <file>")]); break; }
+        const target = resolvePath(args.join(" "));
+        const name = target[target.length - 1];
+        const parent = lsDir(target.slice(0, -1));
+        const f = parent && parent[name];
+        if (!parent || !f || f.type !== "file"){
+          printLines([L(C.err, "cat: " + args.join(" ") + ": no such file (hint: cd works && ls)")]);
+          break;
+        }
+        printHtml(linkify(esc(f.content)));
+        printLines([L(C.out, "")]);
+        break;
+      }
+
+      case "cd": {
+        const arg = args[0] || "~";
+        if (arg === "~" || arg === "/" || arg === ".."){
+          cwd = arg === ".." ? (cwd.length > 1 ? cwd.slice(0, -1) : cwd) : ["~"];
+        } else {
+          const target = resolvePath(arg);
+          const dir = lsDir(target);
+          if (!dir){ printLines([L(C.err, "cd: no such directory: " + arg)]); break; }
+          cwd = ["~"].concat(target);
+        }
+        updatePs1();
+        break;
+      }
+
+      case "pwd":
+        printLines([L(C.out, "/home/rice" + (cwd.length > 1 ? "/" + cwd.slice(1).join("/") : ""))]);
+        break;
+
+      case "tree": {
+        const show = [];
+        (function walk(node, prefix, isLast){
+          const names = Object.keys(node).sort().filter(n => !n.startsWith("."));
+          names.forEach((n, i) => {
+            const last = i === names.length - 1;
+            const f = node[n];
+            show.push(L(C.out, prefix + (last ? "└── " : "├── ") + n + (f.type === "dir" ? "/" : "")));
+            if (f.type === "dir") walk(f.children, prefix + (last ? "    " : "│   "), true);
+          });
+        })(FS, "", true);
+        printLines([L(C.amber, "~"), ...show, L(C.dim, ""), L(C.dim, "(隐藏文件需要 ls -a 才能看到)"), L(C.out, "")]);
+        break;
+      }
+
+      case "open": {
+        const name = (args[0] || "").toLowerCase();
+        const map = { terminal:"term", term:"term", works:"works", work:"works", stack:"stack", skills:"stack", about:"about", whoami:"about", contact:"contact", blog:"contact", github:"contact" };
+        if (map[name]){ showSec(map[name]); }
+        else if (!name){ printLines([L(C.out, "open <section> — try: open works · open stack · open about · open contact")]); }
+        else { printLines([L(C.err, "open: no such section: " + args[0])]); }
+        break;
+      }
+
+      case "whoami":
+      case "about":
+        printLines([
+          L(C.out, "riceawa"),
+          L(C.out, "creative developer · full-stack × creative · open source"),
+          L(C.out, "一个把好奇心当燃料的开发者。"),
+          L(C.dim, "更多: cat about.txt · open about"),
+          L(C.out, "")
+        ]);
+        break;
+
+      case "manifesto":
+        printLines([
+          L(C.amber, "WRITE CODE.   把想法变成可运行的现实"),
+          L(C.amber, "CRAFT WORLDS. 在像素与协议之间造世界"),
+          L(C.amber, "SHARE WONDER. 把好奇心开源给每一个人"),
+          L(C.out, "")
+        ]);
+        break;
+
+      case "stack":
+      case "skills":
+        printLines([
+          L(C.out, "FRONTEND   React / Next.js / TypeScript / Tailwind CSS / GSAP / Motion / Canvas"),
+          L(C.out, "BACKEND    Python / Node.js / Flask / Docker / Linux / Git"),
+          L(C.out, "AI         LLM / Agent / LangChain / MCP / PydanticAI / WebSocket"),
+          L(C.dim, "更多: cat stack.txt · open stack"),
+          L(C.out, "")
+        ]);
+        break;
+
+      case "works":
+      case "projects":
+        printLines([
+          L(C.out, "P.01  MCBE AI Agent     2026  minecraft bedrock ai agent"),
+          L(C.out, "P.02  LumiChat          2026  fabric mod · llm in game"),
+          L(C.out, "P.03  FFmpeg Web Tool   2025  ffmpeg → webassembly"),
+          L(C.out, "P.04  AI Essay Grader   2024  flask + langchain"),
+          L(C.out, "P.05  rice-awa.top      2024  next.js personal site"),
+          L(C.dim, "更多: cd works && ls · cat works/mcbe-ai-agent.md · open works"),
+          L(C.out, "")
+        ]);
+        break;
+
+      case "contact":
+      case "github":
+      case "bilibili":
+      case "blog":
+      case "email": {
+        const lines = [
+          L(C.out, "GITHUB    https://github.com/rice-awa"),
+          L(C.out, "BILIBILI  https://space.bilibili.com/521856101"),
+          L(C.out, "BLOG      https://blog.rice-awa.top/"),
+          L(C.out, "EMAIL     hi@rice-awa.top — 通常 24h 内回复"),
+          L(C.dim, "更多: cat contact.txt · open contact"),
+          L(C.out, "")
+        ];
+        if (cmd === "github") printLines(lines.slice(0,1).concat([L(C.out,"")]));
+        else if (cmd === "bilibili") printLines(lines.slice(1,2).concat([L(C.out,"")]));
+        else if (cmd === "blog") printLines(lines.slice(2,3).concat([L(C.out,"")]));
+        else if (cmd === "email") printLines(lines.slice(3,4).concat([L(C.out,"")]));
+        else printLines(lines);
+        break;
+      }
+
+      case "neofetch": {
+        printHtml(
+          '<pre><span class="c-out">' +
+          "      ▄▄▄▄▄▄▄       " + esc("rice@awa") + "\n" +
+          "    ▄█████████▄     " + esc("───────────") + "\n" +
+          "   █████████████    " + esc("OS: RICE-AWA OS 1.4.2") + "\n" +
+          "  ███████████████   " + esc("HOST: CRT-1420 · P1 GREEN") + "\n" +
+          " █████████████████  " + esc("SHELL: /bin/awa-sh") + "\n" +
+          " █████████████████  " + esc("RES: 640x480 @ 60Hz") + "\n" +
+          "  ███████████████   " + esc("CPU: M68000 @ 7.16 MHz") + "\n" +
+          "   █████████████    " + esc("MEM: 1024K") + "\n" +
+          "    ▀█████████▀     " + esc("UPTIME: " + fmtUptime()) + "\n" +
+          "      ▀▀▀▀▀▀▀" +
+          "</span></pre>"
+        );
+        printLines([L(C.out, "")]);
+        break;
+      }
+
+      case "fortune":
+        printLines([L(C.amber, "☕ " + FORTUNES[Math.floor(Math.random() * FORTUNES.length)]), L(C.out, "")]);
+        break;
+
+      case "date":
+        printLines([L(C.out, new Date().toString()), L(C.out, "")]);
+        break;
+
+      case "uptime":
+        printLines([L(C.out, "up " + fmtUptime() + " · 60Hz · signal locked · CRT-1420 never sleeps"), L(C.out, "")]);
+        break;
+
+      case "echo":
+        printLines([L(C.out, args.join(" ") || ""), L(C.out, "")]);
+        break;
+
+      case "clear":
+        termOut.innerHTML = "";
+        break;
+
+      case "hi": case "hello": case "hey":
+        printLines([L(C.out, "hi there 👋 欢迎来到 riceawa 的 CRT 主页 —— type 'help' 开始探索。"), L(C.out, "")]);
+        break;
+
+      case "sudo": {
+        const what = args.join(" ");
+        if (what.includes("rm -rf")){
+          printLines([L(C.err, "权限拒绝：这台 CRT-1420 是你唯一的家。"), L(C.err, "系统已加强保护：/ 安然无恙。"), L(C.out, "")]);
+        } else {
+          printLines([L(C.err, "riceawa 不在 sudoers 文件中。"), L(C.err, "此事件将被记录并上报给… 好奇心委员会。"), L(C.out, "")]);
+        }
+        break;
+      }
+
+      case "reboot":
+        printLines([L(C.dim, "rebooting…")]);
+        setTimeout(() => { termOut.innerHTML = ""; shellWelcomed = false; bootSequence(); }, 500);
+        break;
+
+      case "poweroff":
+        shutdownSequence();
+        break;
+
+      case "exit":
+        printLines([L(C.dim, "这是一个终端，不是 ssh。你无处可退。type 'help'")]);
+        break;
+
+      case "uname":
+        printLines([L(C.out, "RICE-AWA-OS 1.4.2 CRT-1420 m68k"), L(C.out, "")]);
+        break;
+
+      default:
+        printLines([
+          L(C.err, "command not found: " + cmd + " — type 'help' 查看可用命令"),
+          L(C.dim, "提示: 你可以 cat README.md 或试试 ls -a")
+        ]);
+    }
+    scrollDown();
+    beep(660, 30, .015);
+  }
+
+  function esc(s){
+    return s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  }
+
+  /* input events */
+  cmdInput.addEventListener("keydown", e => {
+    if (e.key === "Enter"){
+      const v = cmdInput.value;
+      if (v.trim()) history.push(v);
+      hIdx = history.length;
+      cmdRun(v);
+      cmdInput.value = "";
+    } else if (e.key === "ArrowUp"){
+      e.preventDefault();
+      if (hIdx > 0){ hIdx--; cmdInput.value = history[hIdx] || ""; }
+    } else if (e.key === "ArrowDown"){
+      e.preventDefault();
+      if (hIdx < history.length - 1){ hIdx++; cmdInput.value = history[hIdx]; }
+      else { hIdx = history.length; cmdInput.value = ""; }
+    } else if (e.key === "Tab"){
+      e.preventDefault();
+      const v = cmdInput.value;
+      const m = v.match(/^(\S+)\s+(.*)$/);
+      let base;
+      if (m){
+        const cmds = ["help","ls","cat","cd","pwd","tree","open","about","manifesto","stack","skills","works","projects","contact","neofetch","fortune","date","uptime","clear","echo","sudo","reboot","poweroff","github","bilibili","blog","email","hi","hello","whoami"];
+        const dir = lsDir(cwd.slice(1));
+        const names = Object.keys(dir).filter(n => !n.startsWith("."));
+        base = names.filter(n => n.startsWith(m[2]));
+        if (!base.length) base = cmds.filter(c => c.startsWith(m[2]));
+        if (base.length === 1) cmdInput.value = m[1] + " " + base[0] + " ";
+      } else {
+        const cmds = ["help","ls -a","cat README.md","cd works","tree","open works","about","manifesto","stack","works","contact","neofetch","fortune","date","uptime","clear","sudo","reboot","poweroff","whoami"];
+        base = cmds.filter(c => c.startsWith(v));
+        if (base.length === 1) cmdInput.value = base[0];
+      }
+    } else if (e.key === "Escape"){
+      cmdInput.blur();
+    }
+  });
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "/" && document.activeElement !== cmdInput && bootEntered){
+      e.preventDefault();
+      cmdInput.focus();
+    }
+  });
+
+  /* ================= EFFECTS ================= */
+  const crtRoot = $("#crtRoot");
+  function bindRange(input, valEl, fn){
+    const apply = () => { const v = +input.value; fn(v); if (valEl) valEl.textContent = input.value; };
+    input.addEventListener("input", apply);
+    apply();
+  }
+  bindRange($("#brightness"), $("#brightnessVal"), v => {
+    crtRoot.style.setProperty("--dim", String(Math.max(0, (1 - v / 100) * .9)));
+  });
+  bindRange($("#contrast"), $("#contrastVal"), v => {
+    crtRoot.style.setProperty("--contrast", String(v / 100));
+  });
+  bindRange($("#vhold"), $("#vholdVal"), v => {
+    crtRoot.style.setProperty("--vh", (v / 10) + "s");
+  });
+
+  /* ================= POWER / SHUTDOWN ================= */
+  const powerBtn = $("#powerBtn"), standby = $("#standby");
+  const shutdownEl = $("#shutdown"), shutdownText = $("#shutdownText");
+  let powered = true, shuttingDown = false;
+  const SHUTDOWN_LINES = [
+    "RICE-AWA OS 1.4.2 — shutting down",
+    "syncing disks ............ done",
+    "saving terminal session .. done",
+    "unmounting /home/rice .... done",
+    "parking CRT beam ......... done",
+    "powering off █"
+  ];
+  function shutdownSequence(){
+    if (!powered || shuttingDown) return;
+    shuttingDown = true;
+    shutdownText.textContent = "";
+    shutdownEl.classList.add("open");
+    const out = [];
+    const step = reduced ? 0 : 130;
+    let i = 0;
+    function tick(){
+      if (i >= SHUTDOWN_LINES.length){
+        shutdownEl.classList.remove("open");
+        crtRoot.classList.add("off");
+        powerBtn.setAttribute("aria-pressed", "false");
+        powered = false;
+        shuttingDown = false;
+        beep(140, 130, .05);
+        return;
+      }
+      out.push(SHUTDOWN_LINES[i]);
+      shutdownText.textContent = out.join("\n") + "\n";
+      i++;
+      setTimeout(tick, step);
+    }
+    tick();
+    beep(523, 70, .03);
+  }
+  function power(on){
+    if (on && !powered){
+      powered = true;
+      crtRoot.classList.remove("off");
+      powerBtn.setAttribute("aria-pressed", "true");
+      bootSequence();
+      beep(660, 60, .04);
+    } else if (!on){
+      shutdownSequence();
+    }
+  }
+  powerBtn.addEventListener("click", () => power(!powered));
+  standby.addEventListener("click", () => power(true));
+
+  /* ================= GO ================= */
+  bootSequence();
+})();
+</script>
+</body>
+</html>
