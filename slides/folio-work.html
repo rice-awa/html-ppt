@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f2f0e9">
+<meta name="description" content="叠序 / FOLIO — 三个关于形态、地貌与引力的交互视觉实验。">
+<title>叠序 FOLIO — A different perspective.</title>
+<style>
+/* All graphics, type and behavior are contained in this document. */
+@font-face{font-family:Display;src:url('__FONT__') format('opentype');font-weight:700;font-display:swap}
+:root{--paper:#f2f0e9;--ink:#20211e;--muted:#696b63;--line:#cfcec5;--orange:#fa6135;--green:#d0d8b8;--blue:#204de2;--ease:cubic-bezier(.23,1,.32,1)}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scrollbar-color:var(--ink) var(--paper)}body{margin:0;background:var(--paper);color:var(--ink);font:14px "Helvetica Neue","Noto Sans CJK SC","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased}button,a{-webkit-tap-highlight-color:transparent}button{font:inherit}a{color:inherit;text-decoration:none}button{color:inherit}button,a{touch-action:manipulation}button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid currentColor;outline-offset:6px}button{cursor:pointer}::selection{background:var(--orange);color:var(--ink)}p{text-wrap:pretty}button:disabled{cursor:default}.skip{position:fixed;top:-100px;left:24px;z-index:100;background:var(--ink);color:var(--paper);padding:15px}.skip:focus{top:10px}
+.header{height:88px;position:absolute;top:0;left:5.4%;right:5.4%;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);z-index:10}.brand{display:flex;align-items:center;gap:13px;font-size:19px;letter-spacing:-.8px;font-weight:700}.brand-symbol{display:block;width:28px;height:27px;position:relative}.brand-symbol:before,.brand-symbol:after{content:"";position:absolute;border:2px solid;inset:0 5px 5px 0}.brand-symbol:after{inset:6px 0 0 6px;background:var(--paper)}.brand i{font-style:normal;font-size:13px;font-weight:400;letter-spacing:1px;padding-left:13px;border-left:1px solid #a2a399}.nav{display:flex;align-items:center;gap:35px;font-size:12px}.nav a{position:relative;padding:12px 0}.nav a:after{content:"";position:absolute;height:1px;bottom:7px;left:0;right:0;background:currentColor;transform:scaleX(0);transform-origin:left;transition:transform 200ms var(--ease)}.nav .work-link:after{transform:scaleX(1)}.nav small{font-size:9px;vertical-align:super;margin-left:4px}.nav .about-link span{margin-left:14px;font-size:17px}
+.story{height:390svh;position:relative}.stage{position:sticky;top:0;height:100svh;min-height:620px;overflow:hidden}.intro{position:absolute;top:clamp(112px,15svh,170px);left:5.4%;right:13%;display:flex;justify-content:space-between;align-items:flex-end;gap:30px}.intro h1{font-family:Display,"Helvetica Neue",sans-serif;font-size:clamp(58px,6.7vw,112px);font-weight:700;line-height:.85;letter-spacing:-.065em;margin:0}.intro h1 span{font-family:Georgia,serif;font-weight:400;font-style:italic;letter-spacing:-.065em}.intro-copy{padding-bottom:4px;max-width:235px;font-size:12px;line-height:1.8}.intro-copy p{margin:0 0 8px}.intro-copy .english{font-size:10px;letter-spacing:1px;color:var(--muted)}
+.deck{position:absolute;top:32svh;left:5.4%;right:13%;height:58svh;min-height:360px;perspective:1400px}.project{position:absolute;inset:0;transform-origin:50% 90%;will-change:transform;box-shadow:0 3px 4px #22221a0c,0 18px 36px #22221a10;overflow:hidden;border:1px solid #24251e;border-radius:3px;background:var(--paper);display:flex;flex-direction:column}.project:nth-child(1){z-index:3}.project:nth-child(2){z-index:2;transform:translateY(23px) scale(.966)}.project:nth-child(3){z-index:1;transform:translateY(46px) scale(.932)}.visual{position:relative;flex:1;min-height:0;overflow:hidden;isolation:isolate}.form{background:var(--orange);color:#27271e}.terrain{background:var(--green);color:#273729}.orbit{background:var(--blue);color:#e5e8ed}.visual:after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.1;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Cpath fill='%23000' filter='url(%23n)' opacity='.65' d='M0 0h180v180H0z'/%3E%3C/svg%3E");mix-blend-mode:multiply;z-index:5}.art-top{position:absolute;top:22px;left:27px;right:27px;display:flex;justify-content:space-between;align-items:center;z-index:4;font-size:10px;letter-spacing:1.1px}.art-top .badge{border:1px solid currentColor;padding:5px 9px;border-radius:20px;font-size:9px;letter-spacing:.6px}.art-title{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;margin:0;padding-top:4%;font-family:Display,sans-serif;font-size:clamp(110px,24vw,390px);font-weight:700;letter-spacing:-.075em;line-height:1;user-select:none;will-change:transform}.form .art-title{padding-right:1.5%}.terrain .art-title{font:italic clamp(100px,18vw,285px)/1 Georgia,serif;letter-spacing:-.08em;z-index:2;padding-top:0}.orbit .art-title{font-size:clamp(110px,20vw,330px);z-index:2;mix-blend-mode:overlay;color:white}.art-canvas{position:absolute;inset:-12% -4%;width:108%;height:124%;z-index:1;pointer-events:none;will-change:transform}.terrain .art-canvas{z-index:1}.art-bottom{position:absolute;bottom:20px;left:27px;right:27px;display:flex;align-items:flex-end;justify-content:space-between;z-index:4;font-size:10px;line-height:1.5}.art-bottom p{margin:0}.art-bottom .tiny{font-size:9px;letter-spacing:1.5px}.cross{font-size:30px;font-weight:200;line-height:1}.card-foot{height:76px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:var(--paper);gap:16px}.project-name{display:flex;align-items:center;gap:18px}.project-name .number{font:11px monospace;color:var(--muted)}.project-name h2{font-size:17px;letter-spacing:-.5px;margin:0;font-weight:500}.project-name h2 span{font-size:12px;margin-left:7px;color:var(--muted);letter-spacing:0}.project-tags{font-size:10px;color:var(--muted);margin-left:auto;padding-right:22px}.open-project{display:flex;align-items:center;justify-content:center;gap:12px;border:0;background:transparent;padding:12px 0 12px 10px;font-size:11px;white-space:nowrap}.open-project .arrow{width:32px;height:32px;border:1px solid var(--line);border-radius:50%;display:grid;place-items:center;font-size:18px;transition:background 200ms ease,color 200ms ease,transform 200ms var(--ease)}
+.rail{position:absolute;top:33svh;bottom:12svh;right:4.7%;width:55px;display:flex;flex-direction:column;align-items:center;z-index:8}.rail-label{font:9px monospace;letter-spacing:1px;margin-bottom:25px;white-space:nowrap}.rail-track{position:relative;flex:1;width:1px;background:#c8c9bd}.rail-fill{position:absolute;inset:0;width:2px;background:var(--ink);transform-origin:top;transform:scaleY(0)}.rail-step{position:absolute;left:50%;display:flex;align-items:center;justify-content:center;width:44px;height:44px;transform:translate(-50%,-50%);background:transparent;border:0;font:11px monospace}.rail-step:before{content:"";position:absolute;left:18px;top:18px;width:8px;height:8px;border-radius:50%;border:1px solid #a1a497;background:var(--paper);transition:background 200ms ease,border-color 200ms ease}.rail-step span{position:absolute;left:35px;color:#73786b;font-size:10px}.rail-step[aria-current="step"]:before{background:var(--ink);border-color:var(--ink);box-shadow:0 0 0 4px var(--paper)}.rail-step[aria-current="step"] span{color:var(--ink)}.rail-step:nth-of-type(1){top:0}.rail-step:nth-of-type(2){top:50%}.rail-step:nth-of-type(3){top:100%}.rail-percent{font:10px monospace;margin-top:24px;min-width:38px;text-align:center}.stage-bottom{position:absolute;left:5.4%;right:13%;bottom:2.5svh;display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--muted);gap:15px}.scroll-hint{display:flex;align-items:center;gap:10px}.scroll-hint .down{font-size:16px;color:var(--ink)}.stage-bottom .counter{font:10px monospace}.motion-toggle{background:transparent;border:0;border-bottom:1px solid var(--line);padding:8px 0;font-size:10px;color:var(--muted)}
+.closing{min-height:76svh;padding:100px 7% 30px 5.4%;position:relative;border-top:1px solid var(--line);display:flex;flex-direction:column;justify-content:space-between}.closing-top{display:flex;align-items:flex-start;justify-content:space-between;gap:40px}.closing-label{font-size:11px;color:var(--muted);letter-spacing:1px}.closing h2{font-family:Display,sans-serif;font-size:clamp(65px,10vw,160px);line-height:.9;letter-spacing:-.065em;font-weight:700;margin:30px 0}.closing h2 em{font-family:Georgia,serif;font-weight:400}.closing-copy{max-width:350px;padding-top:45px;line-height:1.9;font-size:14px}.closing-copy p{color:var(--muted)}.closing-copy details{border-top:1px solid var(--line);margin-top:25px;padding-top:17px}.closing-copy summary{cursor:pointer;font-size:12px}.closing-copy details p{font-size:12px}.footer{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:22px;margin-top:70px;font-size:10px;color:var(--muted)}.back-top{background:none;border:0;font-size:11px;padding:10px 0;color:var(--ink)}.back-top span{margin-left:20px}
+dialog{background:var(--paper);color:var(--ink);border:1px solid var(--ink);border-radius:3px;width:min(720px,calc(100vw - 32px));max-height:85svh;padding:40px}dialog::backdrop{background:#171a1680;backdrop-filter:blur(7px)}.dialog-top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:20px;font-size:11px}.dialog-close{border:1px solid var(--line);background:none;width:44px;height:44px;font-size:24px}.dialog-title{font:700 clamp(40px,7vw,72px)/1 Display,sans-serif;letter-spacing:-.05em;margin:35px 0 15px}.dialog-subtitle{font-size:15px}.dialog-body{font-size:14px;line-height:2;color:var(--muted);margin:25px 0}.dialog-meta{display:flex;gap:30px;border-top:1px solid var(--line);padding-top:20px;font-size:11px}.dialog-meta span{display:block;color:var(--muted);margin-bottom:8px}.no-js{padding:100px 5% 20px}.static .story{height:auto}.static .stage{position:relative;height:auto;min-height:0;overflow:visible;padding:300px 13% 90px 5.4%}.static .deck{position:relative;inset:auto;height:auto;min-height:0;perspective:none}.static .project{position:relative;inset:auto;height:60svh;min-height:380px;margin-bottom:30px;transform:none!important;opacity:1!important;visibility:visible!important;will-change:auto}.static .art-canvas,.static .art-title{transform:none!important;will-change:auto}.static .rail{display:none}.static .stage-bottom{bottom:25px}.static .intro{top:140px}.static .intro h1{font-size:clamp(50px,6.7vw,100px)}
+@media(hover:hover) and (pointer:fine){.nav a:hover:after{transform:scaleX(1)}.open-project:hover .arrow{background:var(--ink);color:var(--paper);transform:rotate(45deg)}.rail-step:hover:before{background:var(--ink)}.back-top:hover,.motion-toggle:hover{color:var(--orange)}.dialog-close:hover{background:var(--ink);color:var(--paper)}}.open-project:active .arrow{transform:scale(.94)}
+@media(min-width:1700px){.deck{left:8%;right:16%}.intro{left:8%;right:16%}.stage-bottom{left:8%;right:16%}}
+@media(max-width:760px){.header{height:74px;left:6%;right:6%}.brand{font-size:17px}.brand i{font-size:11px}.nav{gap:22px}.nav .about-link span{margin-left:5px}.intro{top:125px;left:6%;right:8%;display:block}.intro h1{font-size:clamp(49px,10.8vw,81px)}.intro-copy{margin-top:18px;max-width:none;font-size:11px}.intro-copy p{margin:0}.intro-copy .english{display:none}.stage{min-height:610px}.deck{left:6%;right:13%;top:34svh;height:54svh;min-height:330px}.art-top{top:18px;left:17px;right:17px;font-size:8px}.art-top .badge{font-size:8px}.art-bottom{left:17px;right:17px;bottom:17px;font-size:8px}.art-bottom .tiny{font-size:7px}.art-title{font-size:30vw}.terrain .art-title{font-size:25vw}.orbit .art-title{font-size:26vw}.art-canvas{inset:-4% -28%;width:156%;height:108%}.card-foot{height:84px;padding:0 15px;gap:5px}.project-name{gap:10px}.project-name h2{font-size:15px}.project-name h2 span{display:block;margin:4px 0 0;font-size:10px}.project-tags{display:none}.open-project{padding-left:5px}.open-project .label{display:none}.rail{right:2%;width:24px;top:35svh;bottom:15svh}.rail-label{font-size:7px;letter-spacing:0}.rail-step span{left:30px;font-size:8px}.rail-percent{font-size:8px}.rail-step:before{width:6px;height:6px;left:19px;top:19px}.stage-bottom{left:6%;right:13%;font-size:9px;bottom:3svh}.stage-bottom .counter{display:none}.motion-toggle{font-size:9px}.closing{padding:65px 6% 24px;min-height:75svh}.closing-top{display:block}.closing h2{font-size:clamp(62px,13vw,96px)}.closing-copy{padding-top:0;max-width:420px}.closing-copy p{font-size:13px}.footer{margin-top:40px;font-size:9px}.static .stage{padding:270px 8% 80px 6%}.static .intro{top:120px}.static .intro h1{font-size:10.8vw}.static .project{height:490px;min-height:0}dialog{padding:25px}.dialog-meta{gap:20px}}
+@media(max-height:690px) and (min-width:761px){.header{height:65px}.stage{min-height:510px}.intro{top:93px}.intro h1{font-size:65px}.deck{top:30svh;height:57svh;min-height:280px}.rail{top:32svh}.card-foot{height:62px}.art-top{top:14px}.art-bottom{bottom:13px}.stage-bottom{bottom:2svh}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.open-project .arrow{transition:color 150ms ease,background 150ms ease}}
+</style>
+</head>
+<body>
+<a class="skip" href="#projects">跳至项目作品</a>
+<header class="header"><a class="brand" href="#" aria-label="叠序 FOLIO 首页"><span class="brand-symbol" aria-hidden="true"></span>FOLIO<i>叠序</i></a><nav class="nav" aria-label="主导航"><a class="work-link" href="#projects">作品<small>03</small></a><a class="about-link" href="#about">关于实验<span aria-hidden="true">↗</span></a></nav></header>
+<main>
+<section class="story" id="projects" aria-label="精选概念项目">
+<div class="stage">
+<div class="intro"><h1>Selected <span>perspectives.</span></h1><div class="intro-copy"><p>换一个角度，看见新的可能。<br>三个概念，三种视觉秩序。</p><span class="english">AN INDEPENDENT DESIGN EXPLORATION</span></div></div>
+<div class="deck">
+<article class="project" id="project-1" aria-labelledby="title-1"><div class="visual form"><div class="art-top"><span>FORM / 形态研究</span><span class="badge">VISUAL EXPERIMENT — 01</span></div><div class="art-title" aria-hidden="true">FORM</div><canvas class="art-canvas" data-art="form" aria-hidden="true"></canvas><div class="art-bottom"><p>Between the familiar<br>and the unexpected.</p><span class="cross" aria-hidden="true">＋</span><p class="tiny">A STUDY IN<br>NEW DIMENSIONS</p></div></div><div class="card-foot"><div class="project-name"><span class="number">01 /</span><h2 id="title-1">Beyond Form<span>形态之外</span></h2></div><div class="project-tags">视觉识别 · 三维形态</div><button class="open-project" data-project="0" aria-label="查看形态之外项目"><span class="label">探索项目</span><span class="arrow" aria-hidden="true">↗</span></button></div></article>
+<article class="project" id="project-2" aria-labelledby="title-2"><div class="visual terrain"><div class="art-top"><span>TERRA / 地貌叙事</span><span class="badge">VISUAL EXPERIMENT — 02</span></div><div class="art-title" aria-hidden="true">terra.</div><canvas class="art-canvas" data-art="terrain" aria-hidden="true"></canvas><div class="art-bottom"><p>Quiet contours.<br>Infinite possibilities.</p><span class="cross" aria-hidden="true">＋</span><p class="tiny">DESIGNED BY NATURE<br>REIMAGINED IN CODE</p></div></div><div class="card-foot"><div class="project-name"><span class="number">02 /</span><h2 id="title-2">Quiet Terrain<span>静谧地貌</span></h2></div><div class="project-tags">生成艺术 · 数字景观</div><button class="open-project" data-project="1" aria-label="查看静谧地貌项目"><span class="label">探索项目</span><span class="arrow" aria-hidden="true">↗</span></button></div></article>
+<article class="project" id="project-3" aria-labelledby="title-3"><div class="visual orbit"><div class="art-top"><span>ORBIT / 引力实验</span><span class="badge">VISUAL EXPERIMENT — 03</span></div><div class="art-title" aria-hidden="true">ORBIT</div><canvas class="art-canvas" data-art="orbit" aria-hidden="true"></canvas><div class="art-bottom"><p>Everything moves.<br>Everything connects.</p><span class="cross" aria-hidden="true">＋</span><p class="tiny">FIND YOUR OWN<br>CENTER OF GRAVITY</p></div></div><div class="card-foot"><div class="project-name"><span class="number">03 /</span><h2 id="title-3">A New Orbit<span>新的引力</span></h2></div><div class="project-tags">动态语言 · 空间探索</div><button class="open-project" data-project="2" aria-label="查看新的引力项目"><span class="label">探索项目</span><span class="arrow" aria-hidden="true">↗</span></button></div></article>
+</div>
+<nav class="rail" aria-label="项目进度导航"><span class="rail-label">INDEX</span><div class="rail-track"><div class="rail-fill"></div><button class="rail-step" data-index="0" aria-label="跳至项目 01：形态之外" aria-current="step"><span>01</span></button><button class="rail-step" data-index="1" aria-label="跳至项目 02：静谧地貌"><span>02</span></button><button class="rail-step" data-index="2" aria-label="跳至项目 03：新的引力"><span>03</span></button></div><output class="rail-percent" aria-label="浏览进度">0%</output></nav>
+<div class="stage-bottom"><span class="scroll-hint"><span class="down" aria-hidden="true">↓</span><span id="scroll-copy">向下滚动，展开不同视角</span></span><span class="counter">SELECTED WORKS / <span id="current-index">01</span> — 03</span><button class="motion-toggle" aria-pressed="false">视差动效：开启</button></div>
+</div>
+</section>
+<section class="closing" id="about" aria-labelledby="about-title"><div class="closing-top"><div><span class="closing-label">关于这个实验 / THE IDEA</span><h2 id="about-title">A different<br><em>point of view.</em></h2></div><div class="closing-copy"><p>设计，始于重新看待熟悉的事物。</p><p>一张卡片是一种视角。向下探索，让平面拥有深度，让静止发生变化，让简单的叠放成为一段有节奏的视觉旅程。</p><details><summary>关于作品与实现</summary><p>叠序 FOLIO 是一个交互设计概念。三个项目均为本页原创视觉实验，不代表真实客户案例。形态、地貌与轨道图形由代码生成，字体和所有资源均已内嵌，可离线浏览。</p></details></div></div><footer class="footer"><span>FOLIO / 叠序 · 独立视觉实验</span><button class="back-top">回到第一种视角<span aria-hidden="true">↑</span></button></footer></section>
+</main>
+<dialog aria-labelledby="dialog-title"><div class="dialog-top"><span id="dialog-index"></span><button class="dialog-close" aria-label="关闭项目介绍" autofocus>×</button></div><h2 class="dialog-title" id="dialog-title"></h2><div class="dialog-subtitle"></div><p class="dialog-body"></p><div class="dialog-meta"><div><span>项目类型</span>原创概念探索</div><div><span>设计方向</span><b id="dialog-direction"></b></div><div><span>系列</span>Selected perspectives</div></div></dialog>
+<noscript><style>.story{height:auto}.stage{position:relative;height:auto;overflow:visible;padding:280px 8% 80px}.deck{position:relative;inset:auto;height:auto}.project{position:relative;height:500px;transform:none!important;margin:25px 0}.rail,.motion-toggle,.open-project{display:none}</style><p class="no-js">启用 JavaScript 可体验视差滚动；所有作品仍可静态浏览。</p></noscript>
+<script>
+(() => {
+  'use strict';
+  const $ = (s, root = document) => root.querySelector(s);
+  const cards = [...document.querySelectorAll('.project')];
+  const canvases = [...document.querySelectorAll('.art-canvas')];
+  const titles = [...document.querySelectorAll('.art-title')];
+  const steps = [...document.querySelectorAll('.rail-step')];
+  const story = $('.story'), stage = $('.stage'), fill = $('.rail-fill'), percent = $('.rail-percent');
+  const reduceQuery = matchMedia('(prefers-reduced-motion: reduce)');
+  const toggle = $('.motion-toggle');
+  let reduced = reduceQuery.matches, scheduled = false, active = -1, geometry = {};
+  const clamp = (n, a = 0, b = 1) => Math.max(a, Math.min(b, n));
+  const stops = [0, .49, .98];
+
+  function measure() {
+    geometry = {start:story.offsetTop, length:Math.max(1,story.offsetHeight-stage.offsetHeight), exit:stage.offsetHeight * 1.15};
+  }
+  function render() {
+    scheduled = false;
+    const progress = clamp((scrollY-geometry.start)/geometry.length);
+    if (!reduced) {
+      const phases = [clamp((progress-.09)/.32),clamp((progress-.57)/.32),0];
+      cards.forEach((card,i) => {
+        const before = i===0 ? 0 : 1-phases[i-1];
+        const leave = phases[i];
+        const offset = before * 23 * (i===2 ? 1+(1-phases[0]) : 1);
+        const scale = 1-before * .034 * (i===2 ? 1+(1-phases[0]) : 1)-leave*.055;
+        card.style.transform = `translate3d(0,${offset-leave*geometry.exit}px,0) rotate(${-leave*4}deg) scale(${scale})`;
+        card.style.visibility = leave >= 1 ? 'hidden' : 'visible';
+        canvases[i].style.transform = `translate3d(0,${leave*80-before*25}px,0) rotate(${leave*9-before*4}deg)`;
+        titles[i].style.transform = `translate3d(0,${leave*26-before*12}px,0)`;
+      });
+    }
+    const next = reduced ? 0 : progress<.34 ? 0 : progress<.82 ? 1 : 2;
+    if(next!==active){
+      active=next;
+      steps.forEach((step,i)=>i===active?step.setAttribute('aria-current','step'):step.removeAttribute('aria-current'));
+      cards.forEach((card,i)=>{card.inert=!reduced && i!==active;});
+      $('#current-index').textContent=String(active+1).padStart(2,'0');
+      $('#scroll-copy').textContent=active===2?'继续向下，了解这个实验':'向下滚动，展开不同视角';
+    }
+    fill.style.transform=`scaleY(${progress})`;
+    percent.value=`${Math.round(progress*100)}%`;
+  }
+  function requestRender(){if(!scheduled){scheduled=true;requestAnimationFrame(render);}}
+  function jump(index,instant=false){
+    const top=reduced?cards[index].getBoundingClientRect().top+scrollY-25:geometry.start+geometry.length*stops[index];
+    window.scrollTo({top,behavior:reduced||instant?'instant':'smooth'});
+  }
+  steps.forEach(step=>step.addEventListener('click',event=>jump(Number(step.dataset.index),event.detail===0)));
+  $('.back-top').addEventListener('click',event=>jump(0,event.detail===0));
+  $('.work-link').addEventListener('click',event=>{event.preventDefault();jump(0,event.detail===0);});
+  $('.brand').addEventListener('click',event=>{event.preventDefault();window.scrollTo({top:0,behavior:reduced||event.detail===0?'instant':'smooth'});});
+  function motionMode(){
+    document.body.classList.toggle('static',reduced);
+    toggle.textContent=`视差动效：${reduced?'关闭':'开启'}`;
+    toggle.setAttribute('aria-pressed',String(reduced));
+    active=-1;measure();requestRender();
+  }
+  toggle.addEventListener('click',()=>{const index=active;reduced=!reduced;motionMode();jump(index,true);});
+  reduceQuery.addEventListener('change',event=>{reduced=event.matches;motionMode();});
+  addEventListener('scroll',requestRender,{passive:true});
+
+  // Render once to canvas; scrolling transforms its compositor layer only.
+  // Faceted reflective torus: shaded 3D surface, sorted back to front.
+  function drawForm(ctx,w,h){
+    const size=Math.min(w*.25,h*.49),cx=w*.53,cy=h*.49;
+    ctx.save();
+    ctx.translate(cx,cy+size*.85);ctx.scale(1,.14);
+    const shadow=ctx.createRadialGradient(0,0,0,0,0,size*.9);
+    shadow.addColorStop(0,'rgba(61,25,12,.36)');shadow.addColorStop(1,'rgba(61,25,12,0)');
+    ctx.fillStyle=shadow;ctx.fillRect(-size,-size,size*2,size*2);ctx.restore();
+    const ax=.85,ay=-.43,az=-.48;
+    function rotate(v){let[x,y,z]=v;[y,z]=[y*Math.cos(ax)-z*Math.sin(ax),y*Math.sin(ax)+z*Math.cos(ax)];[x,z]=[x*Math.cos(ay)+z*Math.sin(ay),-x*Math.sin(ay)+z*Math.cos(ay)];return[x*Math.cos(az)-y*Math.sin(az),x*Math.sin(az)+y*Math.cos(az),z];}
+    function vertex(u,v){const r=.37*(1+.12*Math.sin(3*u));return rotate([(0.79+r*Math.cos(v))*Math.cos(u),(0.79+r*Math.cos(v))*Math.sin(u),r*Math.sin(v)]);}
+    const faces=[],nu=150,nv=64;
+    for(let i=0;i<nu;i++)for(let j=0;j<nv;j++){
+      const u=i/nu*Math.PI*2,v=j/nv*Math.PI*2;
+      const points=[vertex(u,v),vertex(u+2*Math.PI/nu,v),vertex(u+2*Math.PI/nu,v+2*Math.PI/nv),vertex(u,v+2*Math.PI/nv)];
+      const n=rotate([Math.cos(v)*Math.cos(u),Math.cos(v)*Math.sin(u),Math.sin(v)]);
+      const diffuse=clamp(n[0]*-.4+n[1]*-.65+n[2]*.65);
+      const ribbon=Math.pow(clamp(1-Math.abs(n[1]+.3*n[0]-.13)*2.8),16);
+      const spec=Math.pow(clamp(n[0]*-.28+n[1]*-.45+n[2]*.847),42);
+      const dark=Math.pow(clamp(1-Math.abs(n[1]-.12)*3),4);
+      let val=clamp(50+diffuse*140+ribbon*155+spec*170-dark*70,15,254);
+      const warm=clamp(-n[1])*.12;
+      faces.push({points,z:points.reduce((sum,p)=>sum+p[2],0)/4,color:`rgb(${Math.round(val+warm*(250-val))},${Math.round(val*.99)},${Math.round(val*.94)})`});
+    }
+    faces.sort((a,b)=>a.z-b.z);
+    faces.forEach(face=>{ctx.beginPath();face.points.forEach((p,i)=>{const k=3.8/(3.8-p[2]);const x=cx+p[0]*size*k,y=cy+p[1]*size*k;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.closePath();ctx.fillStyle=face.color;ctx.strokeStyle=face.color;ctx.lineWidth=.65;ctx.fill();ctx.stroke();});
+  }
+  function drawTerrain(ctx,w,h){
+    ctx.save();ctx.translate(w*.52,h*.64);ctx.rotate(-.17);
+    for(let i=66;i>=0;i--){
+      const k=i/66,r=Math.min(w*.47,h*.8)*(k*.87+.13);
+      ctx.beginPath();
+      for(let j=0;j<=280;j++){
+        const t=j/280*Math.PI*2;
+        const wave=1+.075*Math.sin(3*t+k*5)+.052*Math.cos(5*t-k*3)+.02*Math.sin(9*t);
+        const x=Math.cos(t)*r*wave,y=Math.sin(t)*r*.43*wave-i*1.5;
+        j?ctx.lineTo(x,y):ctx.moveTo(x,y);
+      }
+      ctx.closePath();ctx.fillStyle=`rgb(${Math.round(48+k*85)},${Math.round(65+k*78)},${Math.round(40+k*66)})`;ctx.fill();
+      ctx.strokeStyle=`rgba(221,230,183,${.28+k*.32})`;ctx.lineWidth=.85;ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function drawOrbit(ctx,w,h){
+    const cx=w*.52,cy=h*.51,r=Math.min(w*.23,h*.38);
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(-.35);
+    const glow=ctx.createRadialGradient(0,0,r*.5,0,0,r*1.8);glow.addColorStop(0,'rgba(136,174,255,.34)');glow.addColorStop(1,'rgba(136,174,255,0)');ctx.fillStyle=glow;ctx.fillRect(-r*2,-r*2,r*4,r*4);
+    function ring(front){
+      for(let i=0;i<13;i++){ctx.beginPath();ctx.ellipse(0,0,r*(1.47+i*.035),r*(.4+i*.017),0,front?0:Math.PI,front?Math.PI:2*Math.PI);ctx.strokeStyle=`rgba(214,229,255,${front?.55:.28})`;ctx.lineWidth=i===0?1.3:.65;ctx.stroke();}
+    }
+    ring(false);
+    const ball=ctx.createRadialGradient(-r*.43,-r*.48,r*.015,-r*.03,-r*.1,r*1.13);ball.addColorStop(0,'#f1f4e9');ball.addColorStop(.25,'#ced9e2');ball.addColorStop(.53,'#839ebd');ball.addColorStop(.78,'#34519b');ball.addColorStop(1,'#132873');ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fillStyle=ball;ctx.fill();
+    ctx.save();ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.clip();ctx.strokeStyle='rgba(235,243,246,.15)';ctx.lineWidth=.7;
+    for(let i=-12;i<=12;i++){ctx.beginPath();ctx.ellipse(0,i*r/13,Math.sqrt(Math.max(0,r*r-(i*r/13)**2)),r*.12,0,0,Math.PI*2);ctx.stroke();}
+    ctx.restore();ring(true);
+    ctx.beginPath();ctx.arc(r*1.58,-r*.29,6,0,Math.PI*2);ctx.fillStyle='#edf0dc';ctx.fill();ctx.restore();
+    [[.19,.3],[.78,.27],[.86,.72],[.27,.79]].forEach(([x,y])=>{ctx.strokeStyle='rgba(230,239,255,.7)';ctx.lineWidth=.7;ctx.beginPath();ctx.moveTo(w*x-4,h*y);ctx.lineTo(w*x+4,h*y);ctx.moveTo(w*x,h*y-4);ctx.lineTo(w*x,h*y+4);ctx.stroke();});
+  }
+  function paint(){
+    canvases.forEach(canvas=>{
+      const w=canvas.clientWidth,h=canvas.clientHeight,dpr=Math.min(devicePixelRatio||1,1.65);
+      if(!w||!h)return;
+      canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
+      const ctx=canvas.getContext('2d');if(!ctx)return;ctx.scale(dpr,dpr);
+      ({form:drawForm,terrain:drawTerrain,orbit:drawOrbit})[canvas.dataset.art](ctx,w,h);
+    });
+  }
+  let resizeTimer;
+  addEventListener('resize',()=>{measure();requestRender();clearTimeout(resizeTimer);resizeTimer=setTimeout(paint,180);},{passive:true});
+  const projects=[
+    {title:'Beyond Form',subtitle:'形态之外 / 01',body:'如果字母成为空间，形态能否打破边界？这项实验把厚重的无衬线字体与扭转的金属圆环并置。橙色提供能量，镜面带来深度；滚动时，文字与物体以不同速度移动，让二维海报获得空间感。',direction:'视觉识别 / 三维形态'},
+    {title:'Quiet Terrain',subtitle:'静谧地貌 / 02',body:'从等高线中提取一种安静的视觉语言。层层轮廓通过不同频率的曲线生成，模拟地貌的堆叠与侵蚀；苔绿色与斜体字形成有机的节奏。画面随滚动轻微位移，如同从新的高度观察同一片土地。',direction:'生成艺术 / 数字景观'},
+    {title:'A New Orbit',subtitle:'新的引力 / 03',body:'以轨道为线索，探索秩序与自由之间的关系。钴蓝色空间、冷色球体与细密环线构成一套引力语言。前后交错的轨道让画面产生深度，也让第三张卡片成为整段浏览的视觉终点。',direction:'动态语言 / 空间探索'}
+  ];
+  const dialog=$('dialog');let opener;
+  document.querySelectorAll('.open-project').forEach(button=>button.addEventListener('click',()=>{
+    const index=Number(button.dataset.project),project=projects[index];opener=button;
+    $('#dialog-index').textContent=`FOLIO / CONCEPT ${String(index+1).padStart(2,'0')}`;
+    $('.dialog-title').textContent=project.title;$('.dialog-subtitle').textContent=project.subtitle;
+    $('.dialog-body').textContent=project.body;$('#dialog-direction').textContent=project.direction;
+    dialog.showModal();document.body.style.overflow='hidden';
+  }));
+  $('.dialog-close').addEventListener('click',()=>dialog.close());
+  dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();}});
+  dialog.addEventListener('close',()=>{document.body.style.overflow='';opener?.focus({preventScroll:true});});
+  motionMode();paint();
+})();
+</script>
+</body>
+</html>
