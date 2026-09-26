@@ -15,6 +15,19 @@ function collectionWithImages() {
   for (const w of result.works) if (fs.existsSync(path.join(ROOT, 'assets/thumbs', w.thumbnailName))) w.image = '/thumbs/' + w.thumbnailName;
   return result;
 }
+test('stylesheet URL changes with CSS content and remains stable otherwise', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'shiye-css-'));
+  try {
+    for (const dir of ['templates', 'site']) fs.cpSync(path.join(ROOT, dir), path.join(root, dir), { recursive: true });
+    const collection = collectionWithImages();
+    const stylesheet = () => renderIndex(root, collection).match(/rel="stylesheet" href="([^"]+)"/)[1];
+    const original = stylesheet();
+    assert.match(original, /^\/site\/gallery\.[a-f0-9]+\.css$/);
+    assert.equal(stylesheet(), original);
+    fs.appendFileSync(path.join(root, 'site/gallery.css'), '\n.nav-link{color:inherit}\n');
+    assert.notEqual(stylesheet(), original);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
 test('production homepage renders all works without requiring JavaScript', () => {
   const collection = collectionWithImages(), html = renderIndex(ROOT, collection);
   assert.equal((html.match(/data-work-id=/g) || []).length, collection.works.length);
@@ -75,6 +88,11 @@ test('static build and HTTP preview serve every route and local frontend asset',
     const collection = await build({ root, skipScreenshots: true });
     const serving = await serveStatic(path.join(root, 'public')); server = serving.server;
     const origin = 'http://127.0.0.1:' + serving.port;
+    const html = await (await fetch(origin)).text();
+    const stylesheet = html.match(/rel="stylesheet" href="([^"]+)"/)[1];
+    const css = await fetch(origin + stylesheet);
+    assert.equal(css.status, 200);
+    assert.equal(await css.text(), fs.readFileSync(path.join(root, 'site/gallery.css'), 'utf8'));
     for (const route of ['/', '/site/gallery.css', '/site/gallery.js', '/site/filters.js', '/site/favicon.svg', '/collection.json', ...collection.works.map(w => w.url)]) {
       const response = await fetch(origin + route); assert.equal(response.status, 200, route); await response.arrayBuffer();
     }

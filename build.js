@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ROOT, loadCollection, readJSON, treeFiles, publicWork } from './lib/collection.js';
-import { renderIndex } from './lib/render.js';
+import { renderIndex, stylesheetURL } from './lib/render.js';
 import screenshots from './scripts/screenshots.js';
 
 export async function build({ root = ROOT, skipScreenshots = false, refresh = false } = {}) {
@@ -17,6 +17,7 @@ export async function build({ root = ROOT, skipScreenshots = false, refresh = fa
   try {
     fs.mkdirSync(path.join(stage, 'thumbs'));
     fs.cpSync(path.join(root, 'site'), path.join(stage, 'site'), { recursive: true });
+    fs.copyFileSync(path.join(root, 'site/gallery.css'), path.join(stage, stylesheetURL(root)));
     for (const work of collection.works) {
       const target = path.join(stage, work.target);
       fs.mkdirSync(path.dirname(target), { recursive: true });
