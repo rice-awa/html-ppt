@@ -4,3 +4,7 @@ public/
 .superpowers/
 .DS_Store
 
+
+# Temporary atomic build output
+.build-*/
+public.previous/

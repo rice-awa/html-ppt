@@ -1,0 +1,118 @@
+{
+  "experiments/FOLIO-Parallax-3D-Smooth.html": {
+    "title": "叠序 / FOLIO",
+    "description": "三个关于形态、地貌与引力的交互视觉实验。",
+    "tags": [
+      "3D",
+      "创意编程"
+    ],
+    "order": 0
+  },
+  "experiments/campus-preview-v2.html": {
+    "title": "庭间 / Campus Atlas II",
+    "description": "走进三维校园，选择建筑，探索空间与故事。",
+    "tags": [
+      "3D",
+      "空间探索"
+    ],
+    "order": 1
+  },
+  "games/crt-striker.html": {
+    "title": "辉光战机 / CRT STRIKER",
+    "description": "CRT 显像管质感的横版弹幕射击游戏。",
+    "tags": [
+      "复古",
+      "创意编程"
+    ],
+    "order": 2
+  },
+  "presentations/agent-harness-ppt.html": {
+    "title": "Harness / AI Agent 工程",
+    "description": "从核心定义到七层架构，理解 Agent 的周边基础设施。",
+    "tags": [
+      "AI",
+      "技术分享"
+    ],
+    "order": 3
+  },
+  "websites/rice-portfolio.html": {
+    "title": "RICE AWA / Creative Developer",
+    "description": "将视觉方向、交互、动效与代码放在同一个空间。",
+    "tags": [
+      "作品集",
+      "创意编程"
+    ],
+    "order": 4
+  },
+  "experiments/universe.html": {
+    "title": "由此，向无限",
+    "description": "A journey through scale — 一场关于尺度的探索。",
+    "tags": [
+      "3D",
+      "空间探索"
+    ],
+    "order": 5
+  },
+  "games/2048-pop-gpt-6-astra.html": {
+    "title": "2048 POP / 合合乐",
+    "description": "打开即玩的 2048 数字合并小游戏。",
+    "tags": [
+      "创意编程"
+    ],
+    "order": 6
+  },
+  "presentations/TCP-Presentation-v2.html": {
+    "title": "TCP / 互联网的可靠搬运工",
+    "description": "通过 HTML 演示了解 TCP 的可靠传输。",
+    "tags": [
+      "网络协议",
+      "技术分享"
+    ],
+    "order": 7
+  },
+  "websites/crt-portfolio.html": {
+    "title": "CRT-1420 / Creative Developer",
+    "description": "走进复古终端：交互命令行、虚拟文件系统与彩蛋。",
+    "tags": [
+      "作品集",
+      "复古"
+    ],
+    "order": 8
+  },
+  "presentations/gpt-intro-ppt.html": {
+    "title": "GPT / 从预测到协作",
+    "description": "从下一词预测到通用协作界面的介绍。",
+    "tags": [
+      "AI",
+      "技术分享"
+    ],
+    "order": 9
+  },
+  "presentations/UDP.html": {
+    "title": "UDP / 互联网的快枪手",
+    "description": "围绕 UDP 协议展开的 HTML 演示。",
+    "tags": [
+      "网络协议",
+      "技术分享"
+    ],
+    "order": 10
+  },
+  "presentations/tcp-long-cat.html": {
+    "title": "TCP 协议深度解析",
+    "description": "关于 TCP 协议的深入讲解。",
+    "tags": [
+      "网络协议",
+      "技术分享"
+    ],
+    "order": 11
+  },
+  "presentations/tcp.html": {
+    "title": "TCP / 基本原理",
+    "description": "从基本原理理解传输控制协议。",
+    "tags": [
+      "网络协议",
+      "技术分享"
+    ],
+    "order": 12
+  }
+}

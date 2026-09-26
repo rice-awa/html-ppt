@@ -1,12 +1,4 @@
-<a href="{{ROUTE}}" class="deck-card" style="--i:{{INDEX}}">
-  {{THUMB_BLOCK}}
-  <div class="deck-body">
-    <h2 class="deck-title">{{TITLE}}</h2>
-{{DESC_BLOCK}}
-  </div>
-  <div class="deck-meta">
-    <span class="deck-index">{{INDEX_LABEL}}</span>
-    <span class="deck-route">{{ROUTE}}</span>
-    <span class="deck-arrow" aria-hidden="true">&rarr;</span>
-  </div>
-</a>
+<article class="card" data-work-id="{{ID}}">
+  <div class="card-media"><a class="thumbnail" href="{{URL}}" target="_blank" rel="noopener" aria-label="打开 {{TITLE}}（新窗口）">{{IMAGE}}</a><button class="preview-btn js-only" data-preview="{{ID}}" aria-label="预览 {{TITLE}}"><svg aria-hidden="true"><use href="#i-eye"/></svg>预览</button></div>
+  <div class="card-copy"><div class="card-heading"><h3><a href="{{URL}}" target="_blank" rel="noopener">{{TITLE}}</a></h3><svg aria-hidden="true"><use href="#i-arrow"/></svg></div><p class="card-desc">{{DESCRIPTION}}</p><div class="card-bottom"><div class="card-tags">{{TAGS}}</div><span class="card-type">{{CATEGORY}}</span></div></div>
+</article>

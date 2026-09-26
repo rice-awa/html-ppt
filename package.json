@@ -1,17 +1,22 @@
 {
-  "name": "htmlppt",
+  "name": "shiye-gallery",
   "version": "1.0.0",
   "type": "module",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "postinstall": "node scripts/install-chromium.js",
     "build": "node build.js",
-    "dev": "node build.js && npx serve public"
+    "build:fast": "node build.js --skip-screenshots",
+    "dev": "node scripts/dev.js",
+    "preview": "node scripts/dev.js --no-build",
+    "check": "node scripts/content.js check",
+    "test": "node --test tests/*.test.js",
+    "deploy": "bash scripts/deploy.sh",
+    "thumbnails": "node build.js --refresh-thumbs",
+    "setup:browser": "node scripts/install-chromium.js"
   },
   "devDependencies": {
-    "playwright": "^1.45.0",
-    "serve": "^14.2.0"
+    "playwright": "^1.45.0"
   }
 }
